@@ -22,6 +22,9 @@ export default function ContentContent() {
   const [batchItems, setBatchItems] = React.useState<any[]>([]);
   const [showJsonImport, setShowJsonImport] = React.useState(false);
 
+  // Markdown state
+  const [mdImage, setMdImage] = React.useState<string | null>(null);
+
   const [recentPosts, setRecentPosts] = React.useState<any[]>([]);
 
   React.useEffect(() => {
@@ -64,6 +67,36 @@ export default function ContentContent() {
     } catch (err) {
       alert("متن وارد شده فرمت جی‌سون معتبری ندارد");
     }
+  };
+
+  const handleMarkdownUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+
+      // Extract first H1
+      const titleMatch = text.match(/^#\s+(.+)$/m);
+      if (titleMatch) {
+        setTitle(titleMatch[1].trim());
+      }
+
+      // Extract first image URL: ![alt](url)
+      const imageMatch = text.match(/!\[.*?\]\((.*?)\)/);
+      if (imageMatch) {
+        setMdImage(imageMatch[1]);
+        setType("تصویر");
+      }
+
+      // If no H1, look for any heading
+      if (!titleMatch) {
+        const anyHeading = text.match(/^#+\s+(.+)$/m);
+        if (anyHeading) setTitle(anyHeading[1].trim());
+      }
+    };
+    reader.readAsText(file);
   };
 
   const processBatch = async () => {
@@ -168,12 +201,18 @@ export default function ContentContent() {
               <p className="text-sm text-[#999]">وارد کردن لیست موضوعات برای تولید محتوای مرتبط</p>
             </div>
           </div>
-          <button
-            onClick={() => setShowJsonImport(!showJsonImport)}
-            className="text-sm text-[var(--primary-purple)] hover:underline font-medium"
-          >
-            {showJsonImport ? 'بستن پنل' : 'افزودن دیتا'}
-          </button>
+          <div className="flex gap-4">
+            <label className="text-sm text-[var(--primary-blue)] hover:underline font-medium cursor-pointer">
+              وارد کردن Markdown
+              <input type="file" className="hidden" accept=".md" onChange={handleMarkdownUpload} />
+            </label>
+            <button
+              onClick={() => setShowJsonImport(!showJsonImport)}
+              className="text-sm text-[var(--primary-purple)] hover:underline font-medium"
+            >
+              {showJsonImport ? 'بستن پنل' : 'افزودن دیتا'}
+            </button>
+          </div>
         </div>
 
         {showJsonImport && (
@@ -321,10 +360,19 @@ export default function ContentContent() {
             ></textarea>
           </div>
           <div className="mb-5 flex flex-col gap-2">
-            <label className="text-sm font-medium">آپلود فایل</label>
-            <div className="cursor-pointer rounded-[15px] border-2 border-dashed border-white/20 p-10 text-center transition-all hover:border-[var(--primary-purple)] hover:bg-[rgba(156,39,176,0.1)] light-theme:border-black/20">
-              <i className="fas fa-cloud-upload-alt mb-[15px] text-[48px] text-[var(--primary-purple)]"></i>
-              <p>فایل را اینجا بکشید یا کلیک کنید</p>
+            <label className="text-sm font-medium">آپلود فایل {mdImage && "(تصویر استخراج شده از Markdown)"}</label>
+            <div className="relative cursor-pointer rounded-[15px] border-2 border-dashed border-white/20 p-10 text-center transition-all hover:border-[var(--primary-purple)] hover:bg-[rgba(156,39,176,0.1)] light-theme:border-black/20 overflow-hidden">
+              {mdImage ? (
+                <div className="flex flex-col items-center gap-4">
+                  <img src={mdImage} alt="Extracted" className="max-h-[200px] rounded-lg shadow-lg border border-white/10" />
+                  <button onClick={(e) => { e.stopPropagation(); setMdImage(null); }} className="text-xs text-red-400 hover:text-red-300">حذف تصویر</button>
+                </div>
+              ) : (
+                <>
+                  <i className="fas fa-cloud-upload-alt mb-[15px] text-[48px] text-[var(--primary-purple)]"></i>
+                  <p>فایل را اینجا بکشید یا کلیک کنید</p>
+                </>
+              )}
               <input type="file" className="hidden" />
             </div>
           </div>
