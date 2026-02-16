@@ -9,7 +9,14 @@ export interface OllamaResponse {
   done: boolean;
 }
 
+/**
+ * Generates content using Ollama.
+ * Includes a long timeout (30 minutes) to account for large models and slow hardware.
+ */
 export async function generateContent(prompt: string, model: AIModel = 'gemma3:latest'): Promise<string> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 1800000); // 30 minutes timeout
+
   try {
     const response = await fetch(OLLAMA_URL, {
       method: 'POST',
@@ -21,16 +28,25 @@ export async function generateContent(prompt: string, model: AIModel = 'gemma3:l
         prompt,
         stream: false,
       }),
+      signal: controller.signal,
     });
 
+    clearTimeout(timeoutId);
+
     if (!response.ok) {
-      throw new Error(`Ollama API error: ${response.statusText}`);
+      const errorText = await response.text().catch(() => response.statusText);
+      throw new Error(`Ollama API error (${response.status}): ${errorText}`);
     }
 
     const data: OllamaResponse = await response.json();
     return data.response;
-  } catch (error) {
-    console.error('Ollama Generation Error:', error);
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      console.error(`Ollama Generation Timeout for model ${model}`);
+      throw new Error(`Ollama Generation Timeout for model ${model} after 30 minutes`);
+    }
+    console.error(`Ollama Generation Error (${model}):`, error);
     throw error;
   }
 }
