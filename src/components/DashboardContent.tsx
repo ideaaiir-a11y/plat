@@ -59,7 +59,7 @@ export default function DashboardContent() {
       const result = await response.json();
 
       if (result.success) {
-        setNewsCount(result.data.stats.newsCount);
+        setNewsCount(result.data.stats.postsGenerated);
         setSavedFiles(result.files);
         setStages(prev => prev.map(s => ({ ...s, status: 'completed', info: 'تکمیل شد' })));
         setStatus('completed');

@@ -8,6 +8,7 @@ export default function ContentContent() {
   const [isStreaming, setIsStreaming] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [generating, setGenerating] = React.useState(false);
+  const [publishing, setPublishing] = React.useState(false);
   const [isBatchProcessing, setIsBatchProcessing] = React.useState(false);
 
   // Form state
@@ -184,6 +185,51 @@ export default function ContentContent() {
       console.error('Failed to toggle stream', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePublish = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!content) {
+      alert("محتوایی برای انتشار وجود ندارد");
+      return;
+    }
+
+    setPublishing(true);
+    try {
+      const savedModels = localStorage.getItem('modelPrefs');
+      const modelPrefs = savedModels ? JSON.parse(savedModels) : {};
+
+      const botToken = modelPrefs.botToken;
+      const targetChannel = modelPrefs.targetChannel;
+
+      if (!botToken || !targetChannel) {
+        alert("لطفا تنظیمات بات (توکن و کانال هدف) را در بخش تنظیمات تکمیل کنید");
+        setPublishing(false);
+        return;
+      }
+
+      const response = await fetch('/api/rubika/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: botToken,
+          chatId: targetChannel,
+          text: content
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        alert("محتوا با موفقیت به روبیکا ارسال شد");
+      } else {
+        alert("خطا در ارسال: " + data.error);
+      }
+    } catch (error: any) {
+      console.error('Publish error:', error);
+      alert("خطا در ارتباط با سرور");
+    } finally {
+      setPublishing(false);
     }
   };
 
@@ -400,10 +446,13 @@ export default function ContentContent() {
           </div>
           <div className="flex flex-wrap gap-5">
             <button
-              type="submit"
-              className="btn-primary-gradient flex w-auto items-center gap-2.5 rounded-[15px] px-10 py-[15px] text-base font-semibold shadow-lg hover:shadow-[var(--primary-pink)]/20 transition-all"
+              type="button"
+              onClick={() => handlePublish()}
+              disabled={publishing || !content}
+              className="btn-primary-gradient flex w-auto items-center gap-2.5 rounded-[15px] px-10 py-[15px] text-base font-semibold shadow-lg hover:shadow-[var(--primary-pink)]/20 transition-all disabled:opacity-50"
             >
-              <Send className="w-5 h-5" /> انتشار فوری
+              {publishing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+              انتشار فوری به روبیکا
             </button>
             <button type="button" className="flex w-auto items-center gap-2.5 rounded-xl border-2 border-white/10 bg-white/5 px-10 py-[15px] text-sm transition-all hover:bg-gradient-to-br hover:from-[var(--primary-pink)] hover:to-[var(--primary-purple)] hover:text-white light-theme:border-black/10">
               <i className="fas fa-clock"></i> زمان‌بندی انتشار

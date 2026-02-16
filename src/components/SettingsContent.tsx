@@ -27,7 +27,9 @@ export default function SettingsContent() {
     scheduler: "ideaai/hooshafza:latest",
     provider: "ollama",
     zaiApiKey: "",
-    zaiModel: "z-pro"
+    zaiModel: "z-pro",
+    botToken: "1234567890:ABCdefGHIjklMNOpqrsTUVwxyz",
+    targetChannel: "کانال اصلی"
   });
 
   React.useEffect(() => {
@@ -300,12 +302,33 @@ export default function SettingsContent() {
           <div className="animate-fadeIn">
             <div className="mb-[25px] rounded-[20px] bg-[var(--dark-card)] p-[30px] shadow-[0_10px_30px_rgba(0,0,0,0.2)] light-theme:bg-[var(--light-card)]">
               <h3 className="mb-5 border-b-2 border-white/10 pb-[15px] text-lg font-semibold light-theme:border-black/10">اطلاعات بات</h3>
-              <div className="mb-5 flex flex-col gap-2">
-                <label className="text-sm font-medium">توکن بات</label>
-                <input type="text" className="w-full rounded-[15px] border-2 border-white/10 bg-white/5 p-3 text-sm outline-none light-theme:border-black/10 light-theme:bg-black/2" defaultValue="1234567890:ABCdefGHIjklMNOpqrsTUVwxyz" />
+              <div className="mb-5 flex flex-col gap-4">
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium">توکن بات</label>
+                  <input
+                    type="text"
+                    value={modelPrefs.botToken}
+                    onChange={(e) => setModelPrefs(prev => ({ ...prev, botToken: e.target.value }))}
+                    className="w-full rounded-[15px] border-2 border-white/10 bg-white/5 p-3 text-sm outline-none light-theme:border-black/10 light-theme:bg-black/2"
+                    placeholder="Bot Token"
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium">آیدی کانال یا گروه (GUID/Username)</label>
+                  <input
+                    type="text"
+                    value={modelPrefs.targetChannel}
+                    onChange={(e) => setModelPrefs(prev => ({ ...prev, targetChannel: e.target.value }))}
+                    className="w-full rounded-[15px] border-2 border-white/10 bg-white/5 p-3 text-sm outline-none light-theme:border-black/10 light-theme:bg-black/2"
+                    placeholder="@channel or GUID"
+                  />
+                </div>
               </div>
-              <button className="btn-primary-gradient w-auto rounded-[15px] px-[30px] py-3 text-sm font-semibold">
-                <i className="fas fa-save ml-2"></i> ذخیره تغییرات
+              <button
+                onClick={saveModelPrefs}
+                className="btn-primary-gradient w-auto rounded-[15px] px-[30px] py-3 text-sm font-semibold"
+              >
+                <i className="fas fa-save ml-2"></i> ذخیره تنظیمات بات
               </button>
             </div>
           </div>

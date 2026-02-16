@@ -4,11 +4,12 @@ import { generateWithZai } from '@/lib/zai';
 import fs from 'fs';
 import path from 'path';
 import { uploadToS3 } from '@/lib/s3';
+import { sendMessageToRubika } from '@/lib/rubika';
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { topic, count = 1, models, batch, linked = false } = body;
+    const { topic, count = 1, models, batch, linked = false, autoPublish = false } = body;
 
     const provider = models?.provider || 'ollama';
     const explorerModel = models?.explorer || 'qwen3:4b';
@@ -100,6 +101,17 @@ export async function POST(request: Request) {
         schedule,
         linked: linked && itemIdx > 0
       });
+
+      // Auto-publish to Rubika if requested
+      if (autoPublish && models?.botToken && models?.targetChannel) {
+        console.log(`Auto-publishing post ${itemIdx + 1} to Rubika...`);
+        try {
+          await sendMessageToRubika(models.botToken, models.targetChannel, postContent);
+        } catch (pubError) {
+          console.error(`Auto-publish failed for post ${itemIdx + 1}:`, pubError);
+          // We don't fail the whole pipeline if publish fails, but we log it
+        }
+      }
     }
 
     const postsDir = path.join(process.cwd(), 'storage', 'posts', date);
