@@ -13,11 +13,20 @@ export interface OllamaResponse {
  * Generates content using Ollama.
  * Includes a long timeout (30 minutes) to account for large models and slow hardware.
  */
+import { Agent } from 'undici';
+
+const agent = new Agent({
+  headersTimeout: 1800000, // 30 minutes
+  bodyTimeout: 1800000,    // 30 minutes
+  connectTimeout: 60000,   // 1 minute
+});
+
 export async function generateContent(prompt: string, model: AIModel = 'gemma3:latest'): Promise<string> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 1800000); // 30 minutes timeout
 
   try {
+    // @ts-ignore - dispatcher is a valid property in undici-enhanced fetch
     const response = await fetch(OLLAMA_URL, {
       method: 'POST',
       headers: {
@@ -29,6 +38,7 @@ export async function generateContent(prompt: string, model: AIModel = 'gemma3:l
         stream: false,
       }),
       signal: controller.signal,
+      dispatcher: agent,
     });
 
     clearTimeout(timeoutId);
