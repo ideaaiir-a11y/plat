@@ -2,12 +2,13 @@
 
 import React from "react";
 
-import { Video, Radio, Power, Settings as SettingsIcon, Loader2, Sparkles, Send, Eye, Clock as ClockIcon } from "lucide-react";
+import { Video, Radio, Power, Settings as SettingsIcon, Loader2, Sparkles, Send, Eye, Clock as ClockIcon, FileJson, Upload, Trash2, Play, Link as LinkIcon, Layers } from "lucide-react";
 
 export default function ContentContent() {
   const [isStreaming, setIsStreaming] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [generating, setGenerating] = React.useState(false);
+  const [isBatchProcessing, setIsBatchProcessing] = React.useState(false);
 
   // Form state
   const [title, setTitle] = React.useState("");
@@ -15,6 +16,11 @@ export default function ContentContent() {
   const [content, setContent] = React.useState("");
   const [schedule, setSchedule] = React.useState("");
   const [channel, setChannel] = React.useState("کانال اصلی");
+
+  // Batch JSON state
+  const [jsonInput, setJsonInput] = React.useState("");
+  const [batchItems, setBatchItems] = React.useState<any[]>([]);
+  const [showJsonImport, setShowJsonImport] = React.useState(false);
 
   const [recentPosts, setRecentPosts] = React.useState<any[]>([]);
 
@@ -26,9 +32,74 @@ export default function ContentContent() {
     try {
       const res = await fetch('/api/posts');
       const data = await res.json();
-      if (data.posts) setRecentPosts(data.posts.slice(0, 5));
+      if (data.posts) setRecentPosts(data.posts.slice(0, 10)); // Show more posts to see links
     } catch (e) {
       console.error("Failed to fetch posts", e);
+    }
+  };
+
+  const handleJsonUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target?.result as string);
+        const items = Array.isArray(json) ? json : [json];
+        setBatchItems(items);
+        setJsonInput(JSON.stringify(json, null, 2));
+      } catch (err) {
+        alert("فرمت فایل جی‌سون نامعتبر است");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const parseJsonInput = () => {
+    try {
+      const json = JSON.parse(jsonInput);
+      const items = Array.isArray(json) ? json : [json];
+      setBatchItems(items);
+    } catch (err) {
+      alert("متن وارد شده فرمت جی‌سون معتبری ندارد");
+    }
+  };
+
+  const processBatch = async () => {
+    if (batchItems.length === 0) return;
+
+    setIsBatchProcessing(true);
+    setGenerating(true);
+
+    try {
+      const savedModels = localStorage.getItem('modelPrefs');
+      const models = savedModels ? JSON.parse(savedModels) : null;
+
+      // Send the entire batch for linked processing
+      const response = await fetch('/api/pipeline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          batch: batchItems,
+          linked: true,
+          models: models
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        alert(`تعداد ${data.data.posts.length} پست مرتبط با موفقیت تولید شد`);
+        fetchRecentPosts();
+        setBatchItems([]);
+        setJsonInput("");
+        setShowJsonImport(false);
+      }
+    } catch (error) {
+      console.error('Batch processing failed', error);
+    } finally {
+      setIsBatchProcessing(false);
+      setGenerating(false);
     }
   };
 
@@ -85,42 +156,116 @@ export default function ContentContent() {
 
   return (
     <div className="animate-fadeIn space-y-8">
-      {/* Live Stream Section */}
-      <div className="rounded-[20px] bg-[var(--dark-card)] p-[30px] shadow-[0_10px_30px_rgba(0,0,0,0.2)] border-2 border-[#ff1744]/20 overflow-hidden relative">
+      {/* Batch Import Section */}
+      <div className="rounded-[20px] bg-[var(--dark-card)] p-[30px] shadow-[0_10px_30px_rgba(0,0,0,0.2)] light-theme:bg-[var(--light-card)]">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-xl bg-[var(--primary-purple)]/10 text-[var(--primary-purple)]">
+              <FileJson className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold">ورودی دسته‌ای محتوا (JSON)</h3>
+              <p className="text-sm text-[#999]">وارد کردن لیست موضوعات برای تولید محتوای مرتبط</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowJsonImport(!showJsonImport)}
+            className="text-sm text-[var(--primary-purple)] hover:underline font-medium"
+          >
+            {showJsonImport ? 'بستن پنل' : 'افزودن دیتا'}
+          </button>
+        </div>
+
+        {showJsonImport && (
+          <div className="space-y-6 animate-fadeIn">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <label className="text-sm font-medium block">متن JSON یا بارگذاری فایل</label>
+                <textarea
+                  value={jsonInput}
+                  onChange={(e) => setJsonInput(e.target.value)}
+                  placeholder='[{"topic": "هوش مصنوعی در ۲۰۲۶"}, {"topic": "روبوتیک در ایران"}]'
+                  className="w-full h-[200px] rounded-xl border-2 border-white/10 bg-white/5 p-4 font-mono text-sm outline-none focus:border-[var(--primary-purple)]"
+                ></textarea>
+                <div className="flex gap-4">
+                  <button
+                    onClick={parseJsonInput}
+                    className="flex-1 bg-white/5 hover:bg-white/10 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2"
+                  >
+                    بررسی دیتا
+                  </button>
+                  <label className="flex-1 bg-[var(--primary-purple)]/20 hover:bg-[var(--primary-purple)]/30 text-[var(--primary-purple)] py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 cursor-pointer">
+                    <Upload className="w-4 h-4" />
+                    انتخاب فایل
+                    <input type="file" className="hidden" accept=".json" onChange={handleJsonUpload} />
+                  </label>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <label className="text-sm font-medium block">آیتم‌های شناسایی شده ({batchItems.length})</label>
+                <div className="w-full h-[200px] rounded-xl border-2 border-white/10 bg-white/5 p-4 overflow-y-auto space-y-2">
+                  {batchItems.length > 0 ? batchItems.map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/5">
+                      <span className="text-sm truncate max-w-[80%]">{item.topic || item.title || `آیتم شماره ${idx + 1}`}</span>
+                      <button onClick={() => setBatchItems(batchItems.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-300">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )) : (
+                    <div className="h-full flex items-center justify-center text-[#999] text-sm">دیتا وارد نشده است</div>
+                  )}
+                </div>
+                <button
+                  disabled={batchItems.length === 0 || generating}
+                  onClick={processBatch}
+                  className="w-full bg-gradient-to-r from-[var(--primary-purple)] to-[var(--primary-blue)] py-4 rounded-xl text-white font-bold flex items-center justify-center gap-2 shadow-lg hover:scale-[1.02] transition-all disabled:opacity-50"
+                >
+                  {isBatchProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5" />}
+                  شروع تولید محتوای مرتبط
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Queue Manager Section (Formerly Stream) */}
+      <div className="rounded-[20px] bg-[var(--dark-card)] p-[30px] shadow-[0_10px_30px_rgba(0,0,0,0.2)] border-2 border-[var(--primary-blue)]/20 overflow-hidden relative">
         {isStreaming && (
-          <div className="absolute top-0 right-0 left-0 h-1 bg-red-600 animate-pulse shadow-[0_0_10px_red]"></div>
+          <div className="absolute top-0 right-0 left-0 h-1 bg-[var(--primary-blue)] animate-pulse shadow-[0_0_10px_blue]"></div>
         )}
 
         <div className="flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-4">
-            <div className={`p-4 rounded-2xl ${isStreaming ? 'bg-red-600 animate-pulse' : 'bg-white/5'}`}>
-              <Radio className={`w-8 h-8 ${isStreaming ? 'text-white' : 'text-[#999]'}`} />
+            <div className={`p-4 rounded-2xl ${isStreaming ? 'bg-[var(--primary-blue)] animate-pulse' : 'bg-white/5'}`}>
+              <Layers className={`w-8 h-8 ${isStreaming ? 'text-white' : 'text-[#999]'}`} />
             </div>
             <div>
               <h3 className="text-xl font-bold flex items-center gap-2">
-                استریم زنده RTMP
-                {isStreaming && <span className="text-xs bg-red-600 px-2 py-0.5 rounded text-white animate-pulse">LIVE</span>}
+                مدیریت صف انتشار محتوا
+                {isStreaming && <span className="text-xs bg-[var(--primary-blue)] px-2 py-0.5 rounded text-white animate-pulse">PROCESSING</span>}
               </h3>
-              <p className="text-sm text-[#999]">ارسال مستقیم محتوا به سرور روبیکا</p>
+              <p className="text-sm text-[#999]">هماهنگ‌سازی پست‌های مرتبط برای مدل‌های محلی</p>
             </div>
           </div>
 
           <div className="flex items-center gap-4">
             <div className="text-left hidden md:block">
-              <div className="text-xs text-[#999]">کیفیت فعلی</div>
-              <div className="text-sm font-bold">720x1280 @ 1200kbps</div>
+              <div className="text-xs text-[#999]">وضعیت صف</div>
+              <div className="text-sm font-bold">آماده برای پردازش زنجیره‌ای</div>
             </div>
             <button
               onClick={toggleStream}
               disabled={loading}
               className={`flex items-center gap-3 px-8 py-4 rounded-2xl font-bold transition-all disabled:opacity-50 ${
                 isStreaming
-                ? 'bg-red-600 hover:bg-red-700 text-white shadow-[0_0_30px_rgba(220,38,38,0.4)]'
+                ? 'bg-[var(--primary-blue)] hover:bg-[var(--primary-blue)]/80 text-white shadow-[0_0_30px_rgba(33,150,243,0.4)]'
                 : 'bg-white/5 hover:bg-white/10 text-white'
               }`}
             >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Power className="w-5 h-5" />}
-              {isStreaming ? 'توقف استریم' : 'شروع استریم'}
+              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5" />}
+              {isStreaming ? 'توقف صف' : 'شروع صف'}
             </button>
           </div>
         </div>
@@ -245,16 +390,24 @@ export default function ContentContent() {
               {recentPosts.length > 0 ? (
                 recentPosts.map((post, idx) => (
                   <tr key={idx} className="border-t border-white/5 hover:bg-white/2 transition-all">
-                    <td className="p-[18px_15px] font-medium max-w-[200px] truncate">{post.topic || "بدون عنوان"}</td>
+                    <td className="p-[18px_15px] font-medium max-w-[200px] truncate">
+                      <div className="flex items-center gap-2">
+                        {post.topic === "Batch Processing" && <LinkIcon className="w-4 h-4 text-[var(--primary-purple)]" />}
+                        {post.topic || "بدون عنوان"}
+                      </div>
+                    </td>
                     <td className="p-[18px_15px]">
-                      <span className="inline-block rounded-lg bg-[#2196f333] px-3 py-1.25 text-xs font-semibold text-[var(--primary-blue)]">
-                        {post.posts ? "مجموعه" : "تکی"}
+                      <span className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.25 text-xs font-semibold ${
+                        post.posts ? 'bg-[var(--primary-purple)]/20 text-[var(--primary-purple)]' : 'bg-[#2196f333] text-[var(--primary-blue)]'
+                      }`}>
+                        {post.posts ? <Layers className="w-3 h-3" /> : null}
+                        {post.posts ? "زنجیره محتوا" : "پست تکی"}
                       </span>
                     </td>
                     <td className="p-[18px_15px] dir-ltr text-right">{post.date}</td>
                     <td className="p-[18px_15px] text-[#999]">{post.source === 'runs' ? 'دستی' : 'خودکار'}</td>
                     <td className="p-[18px_15px]">
-                      <span className="inline-block rounded-lg bg-[#00c85333] px-3 py-1.25 text-xs font-semibold text-[#00c853]">ذخیره شده</span>
+                      <span className="inline-block rounded-lg bg-[#00c85333] px-3 py-1.25 text-xs font-semibold text-[#00c853]">آماده انتشار</span>
                     </td>
                     <td className="p-[18px_15px]">
                       <div className="flex gap-2">

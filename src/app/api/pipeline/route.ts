@@ -6,18 +6,21 @@ import { uploadToS3 } from '@/lib/s3';
 
 export async function POST(request: Request) {
   try {
-    const { topic, count = 1, models } = await request.json();
+    const body = await request.json();
+    const { topic, count = 1, models, batch, linked = false } = body;
 
     const explorerModel = models?.explorer || 'qwen3:4b';
     const analyzerModel = models?.analyzer || 'gemma3:latest';
     const reporterModel = models?.reporter || 'llava:13b';
     const schedulerModel = models?.scheduler || 'ideaai/hooshafza:latest';
 
-    if (!topic) {
-      return NextResponse.json({ error: 'Topic is required' }, { status: 400 });
+    if (!topic && !batch) {
+      return NextResponse.json({ error: 'Topic or batch is required' }, { status: 400 });
     }
 
-    console.log(`Starting pipeline for topic: ${topic}, target count: ${count}`);
+    // Process either a single topic or a batch
+    const itemsToProcess = batch ? batch : [{ topic }];
+    console.log(`Starting pipeline for ${itemsToProcess.length} items. Linked: ${linked}`);
 
     const date = new Date().toISOString().split('T')[0];
     const storageDir = path.join(process.cwd(), 'storage', 'runs', date);
@@ -26,51 +29,60 @@ export async function POST(request: Request) {
     }
 
     const runId = Date.now();
-
-    // Step 1: Search / Explorer
-    console.log(`Step 1: Search using ${explorerModel}...`);
-    const searchPrompt = `Research and find 10 detailed and interesting facts or news items about "${topic}". The focus should be on providing high-quality information that can be used for social media content. Present the findings as a numbered list. Language: English or Persian, but the analysis will be in Persian.`;
-    const searchData = await generateContent(searchPrompt, explorerModel as AIModel);
-
-    const searchJson = JSON.stringify({ topic, data: searchData, timestamp: new Date().toISOString() }, null, 2);
-    fs.writeFileSync(path.join(storageDir, `${runId}_search.json`), searchJson);
-    await uploadToS3(`runs/${date}/${runId}_search.json`, searchJson, 'application/json').catch(e => console.error('S3 Upload failed for search', e));
-
-    // Step 2: Analysis / Analyzer
-    console.log(`Step 2: Analysis using ${analyzerModel}...`);
-    const analysisPrompt = `به عنوان یک تحلیلگر محتوا، داده‌های زیر را بررسی کنید و ۵ تم اصلی و جذاب برای تولید محتوا در شبکه اجتماعی روبیکا استخراج کنید.
-    تحلیل باید به زبان فارسی باشد و بر روی جذابیت بصری و متنی برای مخاطب ایرانی تمرکز کند:
-
-    ${searchData}`;
-    const analysisData = await generateContent(analysisPrompt, analyzerModel as AIModel);
-
-    const analysisJson = JSON.stringify({ analysis: analysisData, timestamp: new Date().toISOString() }, null, 2);
-    fs.writeFileSync(path.join(storageDir, `${runId}_analysis.json`), analysisJson);
-    await uploadToS3(`runs/${date}/${runId}_analysis.json`, analysisJson, 'application/json').catch(e => console.error('S3 Upload failed for analysis', e));
-
-    // Step 3 & 4: Production & Save (llava:13b & hooshafza)
-    // We'll generate the requested number of posts (up to a reasonable limit for simulation)
-    const actualCount = Math.min(count, 5); // Limit to 5 for the API call to avoid huge delays
     const posts = [];
+    let previousPostContent = "";
 
-    for (let i = 0; i < actualCount; i++) {
-      console.log(`Step 3: Generating post ${i + 1}/${actualCount} using ${reporterModel}...`);
-      const postPrompt = `با استفاده از تحلیل زیر، یک پست جذاب و حرفه‌ای برای شبکه اجتماعی روبیکا بنویسید (پست شماره ${i + 1}).
-      پست باید شامل تیتر جذاب، متن بدنه با لحن صمیمی و در عین حال محترمانه، و هشتگ‌های مرتبط باشد.
-      تمرکز بر روی تعامل کاربر (Call to Action) باشد.
-      فقط متن پست را به زبان فارسی برگردانید.
+    for (let itemIdx = 0; itemIdx < itemsToProcess.length; itemIdx++) {
+      const currentItem = itemsToProcess[itemIdx];
+      const currentTopic = currentItem.topic || currentItem.title || topic;
 
+      console.log(`Processing item ${itemIdx + 1}/${itemsToProcess.length}: ${currentTopic}`);
+
+      // Step 1: Search / Explorer
+      console.log(`Step 1: Search using ${explorerModel}...`);
+      const searchPrompt = `Research and find detailed and interesting facts about "${currentTopic}". Focus on quality for social media. Present as a list.`;
+      const searchData = await generateContent(searchPrompt, explorerModel as AIModel);
+
+      const searchJson = JSON.stringify({ topic: currentTopic, data: searchData, timestamp: new Date().toISOString() }, null, 2);
+      fs.writeFileSync(path.join(storageDir, `${runId}_${itemIdx}_search.json`), searchJson);
+      await uploadToS3(`runs/${date}/${runId}_${itemIdx}_search.json`, searchJson, 'application/json').catch(e => console.error('S3 Upload failed for search', e));
+
+      // Step 2: Analysis / Analyzer
+      console.log(`Step 2: Analysis using ${analyzerModel}...`);
+      const analysisPrompt = `به عنوان تحلیلگر، داده‌های زیر را بررسی کرده و تم‌های جذاب برای روبیکا استخراج کنید.
+      داده‌ها: ${searchData}`;
+      const analysisData = await generateContent(analysisPrompt, analyzerModel as AIModel);
+
+      const analysisJson = JSON.stringify({ analysis: analysisData, timestamp: new Date().toISOString() }, null, 2);
+      fs.writeFileSync(path.join(storageDir, `${runId}_${itemIdx}_analysis.json`), analysisJson);
+      await uploadToS3(`runs/${date}/${runId}_${itemIdx}_analysis.json`, analysisJson, 'application/json').catch(e => console.error('S3 Upload failed for analysis', e));
+
+      // Step 3: Production (Linked logic)
+      console.log(`Step 3: Generating post using ${reporterModel}...`);
+      let postPrompt = `با استفاده از تحلیل زیر، یک پست حرفه‌ای برای روبیکا بنویسید.
       تحلیل: ${analysisData}`;
+
+      if (linked && previousPostContent) {
+        postPrompt += `\n\nنکته مهم: این پست باید در ادامه و مرتبط با پست قبلی باشد تا یک زنجیره محتوایی ایجاد شود.
+        محتوای پست قبلی برای حفظ پیوستگی: ${previousPostContent.substring(0, 500)}...`;
+      }
+
       const postContent = await generateContent(postPrompt, reporterModel as AIModel);
+      previousPostContent = postContent;
 
+      // Step 4: Scheduling
       console.log(`Step 4: Scheduling using ${schedulerModel}...`);
-      const schedulePrompt = `با توجه به محتوای پست زیر، بهترین زمان برای انتشار آن در روبیکا چه زمانی است؟
-      لطفا فقط زمان پیشنهادی و یک جمله کوتاه دلیل آن را به فارسی بنویسید.
-
+      const schedulePrompt = `بهترین زمان انتشار برای این پست در روبیکا چیست؟ فقط زمان و دلیل کوتاه به فارسی.
       پست: ${postContent}`;
       const schedule = await generateContent(schedulePrompt, schedulerModel as AIModel);
 
-      posts.push({ id: i + 1, content: postContent, schedule });
+      posts.push({
+        id: posts.length + 1,
+        topic: currentTopic,
+        content: postContent,
+        schedule,
+        linked: linked && itemIdx > 0
+      });
     }
 
     const postsDir = path.join(process.cwd(), 'storage', 'posts', date);
@@ -80,10 +92,10 @@ export async function POST(request: Request) {
 
     const finalResult = {
       runId,
-      topic,
+      topic: batch ? "Batch Processing" : topic,
       posts,
       stats: {
-        newsCount: 10,
+        itemsProcessed: itemsToProcess.length,
         postsGenerated: posts.length
       },
       timestamp: new Date().toISOString()
@@ -102,8 +114,6 @@ export async function POST(request: Request) {
       success: true,
       data: finalResult,
       files: [
-        path.join(storageDir, `${runId}_search.json`),
-        path.join(storageDir, `${runId}_analysis.json`),
         path.join(postsDir, `daily_posts_${runId}.json`),
         path.join(postsDir, `posts_${runId}.txt`)
       ]
