@@ -5,70 +5,96 @@ import path from 'path';
 
 export async function POST(request: Request) {
   try {
-    const { topic } = await request.json();
+    const { topic, count = 1 } = await request.json();
 
     if (!topic) {
       return NextResponse.json({ error: 'Topic is required' }, { status: 400 });
     }
 
-    console.log(`Starting pipeline for topic: ${topic}`);
+    console.log(`Starting pipeline for topic: ${topic}, target count: ${count}`);
 
-    // Step 1: Explorer (qwen3:4b) - Researching the topic
-    console.log('Step 1: Explorer (qwen3:4b) is researching...');
-    const researchPrompt = `Research and provide 5 key interesting facts about the topic: ${topic}. Be concise.`;
-    const researchData = await generateContent(researchPrompt, 'qwen3:4b');
-
-    // Step 2: Analyzer (gemma3:latest) - Analyzing research data
-    console.log('Step 2: Analyzer (gemma3:latest) is analyzing...');
-    const analysisPrompt = `Analyze the following facts and identify the most engaging angle for a social media post: ${researchData}`;
-    const analysisData = await generateContent(analysisPrompt, 'gemma3:latest');
-
-    // Step 3: Reporter (llava:13b) - Generating the final post in Persian
-    console.log('Step 3: Reporter (llava:13b) is writing the post...');
-    const reportPrompt = `Based on the following analysis, write a professional and engaging social media post in Persian (Farsi) with relevant hashtags: ${analysisData}`;
-    const reportData = await generateContent(reportPrompt, 'llava:13b');
-
-    // Step 4: Scheduler (ideaai/hooshafza:latest) - Determining best post time
-    console.log('Step 4: Scheduler (ideaai/hooshafza:latest) is scheduling...');
-    const schedulePrompt = `Determine the best time of day to post this content for maximum engagement on Rubika: ${reportData}`;
-    const scheduleData = await generateContent(schedulePrompt, 'ideaai/hooshafza:latest');
-
-    // Save results to storage
     const date = new Date().toISOString().split('T')[0];
-    const storageDir = path.join(process.cwd(), 'storage', date);
+    const storageDir = path.join(process.cwd(), 'storage', 'runs', date);
     if (!fs.existsSync(storageDir)) {
       fs.mkdirSync(storageDir, { recursive: true });
     }
 
-    const pipelineResult = {
-      id: Date.now(),
+    const runId = Date.now();
+
+    // Step 1: Search / Explorer (qwen3:4b)
+    console.log('Step 1: Search...');
+    const searchPrompt = `Find 10 recent news or interesting facts about: ${topic}. Format as a list.`;
+    const searchData = await generateContent(searchPrompt, 'qwen3:4b');
+
+    fs.writeFileSync(
+      path.join(storageDir, `${runId}_search.json`),
+      JSON.stringify({ topic, data: searchData, timestamp: new Date().toISOString() }, null, 2)
+    );
+
+    // Step 2: Analysis / Analyzer (gemma3:latest)
+    console.log('Step 2: Analysis...');
+    const analysisPrompt = `Analyze these facts and extract key themes for content creation: ${searchData}`;
+    const analysisData = await generateContent(analysisPrompt, 'gemma3:latest');
+
+    fs.writeFileSync(
+      path.join(storageDir, `${runId}_analysis.json`),
+      JSON.stringify({ analysis: analysisData, timestamp: new Date().toISOString() }, null, 2)
+    );
+
+    // Step 3 & 4: Production & Save (llava:13b & hooshafza)
+    // We'll generate the requested number of posts (up to a reasonable limit for simulation)
+    const actualCount = Math.min(count, 5); // Limit to 5 for the API call to avoid huge delays
+    const posts = [];
+
+    for (let i = 0; i < actualCount; i++) {
+      console.log(`Step 3: Generating post ${i + 1}/${actualCount}...`);
+      const postPrompt = `Create a unique Persian social media post (Post #${i + 1}) about: ${analysisData}`;
+      const postContent = await generateContent(postPrompt, 'llava:13b');
+
+      const schedulePrompt = `Best time to post this content on Rubika? ${postContent}`;
+      const schedule = await generateContent(schedulePrompt, 'ideaai/hooshafza:latest');
+
+      posts.push({ id: i + 1, content: postContent, schedule });
+    }
+
+    const postsDir = path.join(process.cwd(), 'storage', 'posts', date);
+    if (!fs.existsSync(postsDir)) {
+      fs.mkdirSync(postsDir, { recursive: true });
+    }
+
+    const finalResult = {
+      runId,
       topic,
-      steps: [
-        { model: 'qwen3:4b', role: 'Explorer', result: researchData },
-        { model: 'gemma3:latest', role: 'Analyzer', result: analysisData },
-        { model: 'llava:13b', role: 'Reporter', result: reportData },
-        { model: 'ideaai/hooshafza:latest', role: 'Scheduler', result: scheduleData },
-      ],
-      final_post: reportData,
-      scheduled_time: scheduleData,
-      timestamp: new Date().toISOString(),
+      posts,
+      stats: {
+        newsCount: 10,
+        postsGenerated: posts.length
+      },
+      timestamp: new Date().toISOString()
     };
 
     fs.writeFileSync(
-      path.join(storageDir, `pipeline_${pipelineResult.id}.json`),
-      JSON.stringify(pipelineResult, null, 2)
+      path.join(postsDir, `daily_posts_${runId}.json`),
+      JSON.stringify(finalResult, null, 2)
     );
+
+    // Also write a human readable txt file as seen in screenshots
+    const txtContent = posts.map(p => `Post #${p.id}\n${p.content}\nSchedule: ${p.schedule}\n---\n`).join('\n');
+    fs.writeFileSync(path.join(postsDir, `posts_${runId}.txt`), txtContent);
 
     return NextResponse.json({
       success: true,
-      data: pipelineResult
+      data: finalResult,
+      files: [
+        path.join(storageDir, `${runId}_search.json`),
+        path.join(storageDir, `${runId}_analysis.json`),
+        path.join(postsDir, `daily_posts_${runId}.json`),
+        path.join(postsDir, `posts_${runId}.txt`)
+      ]
     });
 
   } catch (error: any) {
-    console.error('Pipeline Execution Error:', error);
-    return NextResponse.json({
-      success: false,
-      error: error.message || 'Pipeline failed'
-    }, { status: 500 });
+    console.error('Pipeline Error:', error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

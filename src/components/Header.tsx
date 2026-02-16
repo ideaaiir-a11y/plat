@@ -32,6 +32,7 @@ export default function Header({
           <i className="fas fa-bars"></i>
         </button>
         <button
+          id="themeToggle"
           onClick={onThemeToggle}
           className="flex h-[50px] w-[50px] items-center justify-center rounded-[15px] bg-white/10 border-none text-white cursor-pointer text-[20px] transition-all duration-300 hover:scale-110 hover:rotate-[15deg] hover:bg-gradient-to-br hover:from-[var(--primary-pink)] hover:to-[var(--primary-purple)] hover:text-white light-theme:bg-black/5 light-theme:text-[var(--text-light)]"
         >
