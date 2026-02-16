@@ -76,85 +76,69 @@ export default function DashboardContent() {
 
   return (
     <div className="animate-fadeIn space-y-8 font-vazirmatn text-white">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-        <div className="flex items-center gap-4">
-          <div className="bg-[#00c853] p-3 rounded-xl shadow-[0_0_20px_rgba(0,200,83,0.3)]">
-            <Loader2 className={`w-8 h-8 ${status === 'running' ? 'animate-spin' : ''}`} />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold">اتوماسیون محتوا با هوش مصنوعی</h1>
-            <p className="text-[#999] text-sm flex items-center gap-2">
-              جستجو <span className="text-xs">←</span> تحلیل <span className="text-xs">←</span> تولید <span className="text-xs">←</span> ذخیره لوکال
-            </p>
-          </div>
-        </div>
+      {/* Control Bar */}
+      <div className="bg-[#0f152e] p-6 rounded-[30px] shadow-2xl flex flex-wrap items-center justify-between gap-6 border border-white/5">
+        <div className="flex items-center gap-6">
+           <div className="bg-white w-10 h-10 rounded-lg shadow-[0_0_15px_white]"></div>
+           <div className="flex items-center gap-3">
+              <button
+                disabled={status !== 'running'}
+                onClick={() => setStatus('idle')}
+                className="flex items-center gap-2 bg-[#ff1744] hover:bg-[#d50000] px-5 py-2.5 rounded-xl transition-all disabled:opacity-50"
+              >
+                <Square className="w-4 h-4 fill-white" />
+                <span className="font-bold text-sm">توقف</span>
+              </button>
 
-        <div className="flex items-center gap-3">
-          <div className={`flex items-center gap-2 px-4 py-2 rounded-lg border ${
-            status === 'completed' ? 'border-[#00c853]/50 bg-[#00c853]/10 text-[#00c853]' :
-            'border-[#ffab00]/50 bg-[#ffab00]/10 text-[#ffab00]'
-          }`}>
-            <Clock className="w-4 h-4" />
-            <span className="text-sm font-medium">{status === 'completed' ? 'تکمیل شد' : 'در حال اجرا'}</span>
-          </div>
-          {status === 'running' ? (
-            <button
-              onClick={() => setStatus('idle')}
-              className="flex items-center gap-2 bg-[#ff1744] hover:bg-[#d50000] px-6 py-2 rounded-lg transition-colors"
-            >
-              <Square className="w-4 h-4 fill-white" />
-              <span className="font-bold">توقف</span>
-            </button>
-          ) : (
-            <button
-              onClick={runPipeline}
-              className="flex items-center gap-2 bg-[#00c853] hover:bg-[#00a344] px-6 py-2 rounded-lg transition-colors"
-            >
-              <Play className="w-4 h-4 fill-white" />
-              <span className="font-bold">شروع</span>
-            </button>
-          )}
-          <div className="bg-white w-10 h-10 rounded-lg"></div>
-        </div>
-      </div>
+              <div className={`flex items-center gap-2 px-5 py-2.5 rounded-xl border border-[#ffab00]/30 bg-[#ffab00]/10 text-[#ffab00] ${status === 'running' ? 'animate-pulse' : ''}`}>
+                <Loader2 className={`w-4 h-4 ${status === 'running' ? 'animate-spin' : ''}`} />
+                <span className="text-sm font-bold">در حال اجرا</span>
+              </div>
+           </div>
 
-      {/* Inputs Section */}
-      <div className="bg-[#1a1f3a] p-8 rounded-[30px] border border-white/5 shadow-2xl">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="space-y-3">
-            <label className="text-[#999] text-sm block">عبارت جستجو</label>
-            <div className="relative">
+           <div className="flex items-center gap-3 bg-[#0a0e27]/50 p-1.5 rounded-xl border border-white/5">
+              <span className="text-[#999] text-xs px-3">تعداد پست</span>
               <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#0a0e27] border border-white/10 rounded-xl p-4 text-sm focus:border-[#6200ea] outline-none transition-all"
+                type="number"
+                value={postCount}
+                onChange={(e) => setPostCount(parseInt(e.target.value))}
+                className="w-16 bg-[#0a0e27] border border-white/10 rounded-lg p-2 text-xs focus:border-[#6200ea] outline-none text-center font-bold"
               />
-            </div>
-          </div>
-          <div className="flex gap-8">
-             <div className="space-y-3 flex-1">
-                <label className="text-[#999] text-sm block text-left">تعداد پست</label>
-                <input
-                  type="number"
-                  value={postCount}
-                  onChange={(e) => setPostCount(parseInt(e.target.value))}
-                  className="w-full bg-[#0a0e27] border border-white/10 rounded-xl p-4 text-sm focus:border-[#6200ea] outline-none text-center"
-                />
-             </div>
-             <div className="space-y-3 flex items-center justify-end">
-                <div className="flex items-center gap-3 mt-8">
-                  <span className="text-[#999] text-sm">ذخیره خودکار</span>
-                  <button
-                    onClick={() => setAutoSave(!autoSave)}
-                    className={`w-12 h-6 rounded-full relative transition-colors ${autoSave ? 'bg-[#ffab00]' : 'bg-gray-600'}`}
-                  >
-                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${autoSave ? 'right-1' : 'right-7'}`}></div>
-                  </button>
-                </div>
-             </div>
-          </div>
+           </div>
+
+           <div className="flex items-center gap-3">
+              <span className="text-[#999] text-xs">ذخیره خودکار</span>
+              <button
+                onClick={() => setAutoSave(!autoSave)}
+                className={`w-12 h-6 rounded-full relative transition-colors ${autoSave ? 'bg-[#ffab00]' : 'bg-gray-600'}`}
+              >
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${autoSave ? 'right-1' : 'right-7'}`}></div>
+              </button>
+           </div>
+        </div>
+
+        <div className="flex items-center gap-4 bg-[#0a0e27]/80 px-6 py-4 rounded-2xl border border-white/10 flex-1 min-w-[300px]">
+           <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="bg-transparent border-none outline-none text-sm w-full font-mono text-[#999]"
+            />
+        </div>
+
+        <div className="flex items-center gap-4">
+           {status !== 'running' && (
+              <button
+                onClick={runPipeline}
+                className="bg-[#00c853] hover:bg-[#00a344] p-3 rounded-xl shadow-[0_0_20px_rgba(0,200,83,0.3)] transition-all"
+              >
+                <Play className="w-6 h-6 fill-white" />
+              </button>
+           )}
+           <div className="text-left">
+              <h1 className="text-xl font-bold text-[#00c853]">اتوماسیون محتوا با هوش مصنوعی</h1>
+              <p className="text-[#999] text-[10px] text-right">جستجو ← تحلیل ← تولید ← ذخیره لوکال</p>
+           </div>
         </div>
       </div>
 

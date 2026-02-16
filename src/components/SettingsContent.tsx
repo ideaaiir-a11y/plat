@@ -9,6 +9,7 @@ const tabs = [
   { id: "general", label: "عمومی" },
   { id: "bot", label: "تنظیمات بات" },
   { id: "models", label: "مدل‌های هوش مصنوعی" },
+  { id: "zai", label: "Z.ai SDK" },
   { id: "stream", label: "استریم زنده" },
   { id: "security", label: "امنیت" },
   { id: "notifications", label: "اعلان‌ها" },
@@ -23,12 +24,18 @@ export default function SettingsContent() {
     explorer: "qwen3:4b",
     analyzer: "gemma3:latest",
     reporter: "llava:13b",
-    scheduler: "ideaai/hooshafza:latest"
+    scheduler: "ideaai/hooshafza:latest",
+    provider: "ollama",
+    zaiApiKey: "",
+    zaiModel: "z-pro"
   });
 
   React.useEffect(() => {
     const saved = localStorage.getItem('modelPrefs');
-    if (saved) setModelPrefs(JSON.parse(saved));
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      setModelPrefs(prev => ({ ...prev, ...parsed }));
+    }
 
     const fetchModels = async () => {
       setLoadingModels(true);
@@ -117,8 +124,18 @@ export default function SettingsContent() {
               <div className="flex items-center justify-between mb-8 border-b-2 border-white/10 pb-5">
                 <h3 className="text-xl font-bold flex items-center gap-3">
                   <Cpu className="text-[var(--primary-purple)]" />
-                  تنظیمات مدل‌های Ollama
+                  تنظیمات مدل‌های هوش مصنوعی
                 </h3>
+                <div className="flex gap-2">
+                   <button
+                     onClick={() => setModelPrefs(prev => ({ ...prev, provider: 'ollama' }))}
+                     className={twMerge("px-4 py-2 rounded-lg text-xs font-bold transition-all", modelPrefs.provider === 'ollama' ? 'bg-[var(--primary-purple)] text-white' : 'bg-white/5')}
+                   >Ollama</button>
+                   <button
+                     onClick={() => setModelPrefs(prev => ({ ...prev, provider: 'zai' }))}
+                     className={twMerge("px-4 py-2 rounded-lg text-xs font-bold transition-all", modelPrefs.provider === 'zai' ? 'bg-[var(--primary-blue)] text-white' : 'bg-white/5')}
+                   >Z.ai SDK</button>
+                </div>
                 {loadingModels ? (
                   <Loader2 className="animate-spin text-[#999]" />
                 ) : (
@@ -129,31 +146,63 @@ export default function SettingsContent() {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {[
-                  { key: 'explorer', label: 'مدل Explorer (جستجو)', current: modelPrefs.explorer },
-                  { key: 'analyzer', label: 'مدل Analyzer (تحلیل)', current: modelPrefs.analyzer },
-                  { key: 'reporter', label: 'مدل Reporter (تولید محتوا)', current: modelPrefs.reporter },
-                  { key: 'scheduler', label: 'مدل Scheduler (زمان‌بندی)', current: modelPrefs.scheduler }
-                ].map((stage) => (
-                  <div key={stage.key} className="space-y-3">
-                    <label className="text-sm font-medium text-[#999]">{stage.label}</label>
-                    <select
-                      value={stage.current}
-                      onChange={(e) => setModelPrefs(prev => ({ ...prev, [stage.key]: e.target.value }))}
-                      className="w-full rounded-[15px] border-2 border-white/10 bg-white/5 p-4 text-sm outline-none focus:border-[var(--primary-purple)]"
-                    >
-                      {ollamaModels.length > 0 ? (
-                        ollamaModels.map((m) => (
-                          <option key={m.name} value={m.name}>{m.name}</option>
-                        ))
-                      ) : (
-                        <option value={stage.current}>{stage.current} (پیش‌فرض)</option>
-                      )}
-                    </select>
+              {modelPrefs.provider === 'ollama' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {[
+                    { key: 'explorer', label: 'مدل Explorer (جستجو)', current: modelPrefs.explorer },
+                    { key: 'analyzer', label: 'مدل Analyzer (تحلیل)', current: modelPrefs.analyzer },
+                    { key: 'reporter', label: 'مدل Reporter (تولید محتوا)', current: modelPrefs.reporter },
+                    { key: 'scheduler', label: 'مدل Scheduler (زمان‌بندی)', current: modelPrefs.scheduler }
+                  ].map((stage) => (
+                    <div key={stage.key} className="space-y-3">
+                      <label className="text-sm font-medium text-[#999]">{stage.label}</label>
+                      <select
+                        value={stage.current as string}
+                        onChange={(e) => setModelPrefs(prev => ({ ...prev, [stage.key]: e.target.value }))}
+                        className="w-full rounded-[15px] border-2 border-white/10 bg-white/5 p-4 text-sm outline-none focus:border-[var(--primary-purple)]"
+                      >
+                        {ollamaModels.length > 0 ? (
+                          ollamaModels.map((m) => (
+                            <option key={m.name} value={m.name}>{m.name}</option>
+                          ))
+                        ) : (
+                          <option value={stage.current as string}>{stage.current as string} (پیش‌فرض)</option>
+                        )}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-xl text-sm text-blue-400">
+                    تمامی مراحل پایپ‌لاین توسط مدل <b>{modelPrefs.zaiModel}</b> در سرویس Z.ai پردازش خواهد شد.
                   </div>
-                ))}
-              </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-3">
+                      <label className="text-sm font-medium text-[#999]">مدل انتخابی Z.ai</label>
+                      <select
+                        value={modelPrefs.zaiModel}
+                        onChange={(e) => setModelPrefs(prev => ({ ...prev, zaiModel: e.target.value }))}
+                        className="w-full rounded-[15px] border-2 border-white/10 bg-white/5 p-4 text-sm outline-none focus:border-[var(--primary-blue)]"
+                      >
+                        <option value="z-pro">z-pro (پیشنهادی)</option>
+                        <option value="z-flash">z-flash (سریع)</option>
+                        <option value="z-vision">z-vision (تصویر)</option>
+                      </select>
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-sm font-medium text-[#999]">API Key</label>
+                      <input
+                        type="password"
+                        value={modelPrefs.zaiApiKey}
+                        onChange={(e) => setModelPrefs(prev => ({ ...prev, zaiApiKey: e.target.value }))}
+                        placeholder="sk-zai-..."
+                        className="w-full rounded-[15px] border-2 border-white/10 bg-white/5 p-4 text-sm outline-none focus:border-[var(--primary-blue)]"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="mt-10">
                 <button
@@ -213,6 +262,36 @@ export default function SettingsContent() {
               <button className="btn-primary-gradient w-auto rounded-[15px] px-[30px] py-3 text-sm font-semibold">
                 <i className="fas fa-save ml-2"></i> ذخیره تنظیمات استریم
               </button>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "zai" && (
+          <div className="animate-fadeIn">
+            <div className="mb-[25px] rounded-[20px] bg-[var(--dark-card)] p-[30px] shadow-[0_10px_30px_rgba(0,0,0,0.2)] light-theme:bg-[var(--light-card)]">
+              <h3 className="mb-5 border-b-2 border-white/10 pb-[15px] text-lg font-semibold light-theme:border-black/10">پیکربندی Z.ai SDK</h3>
+              <div className="space-y-6">
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium">API Key</label>
+                  <input
+                    type="password"
+                    value={modelPrefs.zaiApiKey}
+                    onChange={(e) => setModelPrefs(prev => ({ ...prev, zaiApiKey: e.target.value }))}
+                    className="w-full rounded-[15px] border-2 border-white/10 bg-white/5 p-3 text-sm outline-none"
+                    placeholder="sk-zai-..."
+                  />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium">Base URL (اختیاری)</label>
+                  <input type="text" className="w-full rounded-[15px] border-2 border-white/10 bg-white/5 p-3 text-sm outline-none" placeholder="https://api.z.ai/v1" />
+                </div>
+                <button
+                  onClick={saveModelPrefs}
+                  className="btn-primary-gradient w-auto rounded-[15px] px-[30px] py-3 text-sm font-semibold"
+                >
+                  <i className="fas fa-save ml-2"></i> ذخیره تنظیمات Z.ai
+                </button>
+              </div>
             </div>
           </div>
         )}

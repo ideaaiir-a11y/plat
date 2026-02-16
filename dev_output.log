@@ -1,0 +1,30 @@
+
+> rubika-dashboard@0.1.0 dev
+> next dev
+
+▲ Next.js 16.1.6 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.2:3000
+- Environments: .env.local
+
+✓ Starting...
+Registering Cron Jobs...
+✓ Ready in 2.9s
+○ Compiling / ...
+ GET / 200 in 4.2s (compile: 3.7s, render: 549ms)
+ GET / 200 in 135ms (compile: 7ms, render: 127ms)
+ POST /api/auth 200 in 227ms (compile: 191ms, render: 36ms)
+ GET /api/stream 200 in 93ms (compile: 79ms, render: 14ms)
+ GET /api/stream 200 in 21ms (compile: 9ms, render: 11ms)
+ GET /api/ollama/models 500 in 97ms (compile: 74ms, render: 23ms)
+ GET /api/ollama/models 500 in 21ms (compile: 5ms, render: 16ms)
+ GET /api/posts 200 in 66ms (compile: 54ms, render: 12ms)
+ GET /api/posts 200 in 10ms (compile: 4ms, render: 6ms)
+ GET / 200 in 86ms (compile: 8ms, render: 78ms)
+ POST /api/auth 200 in 12ms (compile: 4ms, render: 8ms)
+ GET /api/stream 200 in 19ms (compile: 5ms, render: 14ms)
+ GET /api/stream 200 in 13ms (compile: 4ms, render: 9ms)
+ GET /api/ollama/models 500 in 24ms (compile: 4ms, render: 21ms)
+ GET /api/ollama/models 500 in 18ms (compile: 3ms, render: 15ms)
+ GET /api/posts 200 in 31ms (compile: 10ms, render: 21ms)
+ GET /api/posts 200 in 25ms (compile: 10ms, render: 16ms)

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { generateContent, AIModel } from '@/lib/ollama';
+import { generateWithZai } from '@/lib/zai';
 import fs from 'fs';
 import path from 'path';
 import { uploadToS3 } from '@/lib/s3';
@@ -9,10 +10,13 @@ export async function POST(request: Request) {
     const body = await request.json();
     const { topic, count = 1, models, batch, linked = false } = body;
 
+    const provider = models?.provider || 'ollama';
     const explorerModel = models?.explorer || 'qwen3:4b';
     const analyzerModel = models?.analyzer || 'gemma3:latest';
     const reporterModel = models?.reporter || 'llava:13b';
     const schedulerModel = models?.scheduler || 'ideaai/hooshafza:latest';
+    const zaiApiKey = models?.zaiApiKey;
+    const zaiModel = models?.zaiModel || 'z-pro';
 
     if (!topic && !batch) {
       return NextResponse.json({ error: 'Topic or batch is required' }, { status: 400 });
@@ -39,26 +43,30 @@ export async function POST(request: Request) {
       console.log(`Processing item ${itemIdx + 1}/${itemsToProcess.length}: ${currentTopic}`);
 
       // Step 1: Search / Explorer
-      console.log(`Step 1: Search using ${explorerModel}...`);
+      console.log(`Step 1: Search using ${provider === 'zai' ? zaiModel : explorerModel}...`);
       const searchPrompt = `Research and find detailed and interesting facts about "${currentTopic}". Focus on quality for social media. Present as a list.`;
-      const searchData = await generateContent(searchPrompt, explorerModel as AIModel);
+      const searchData = provider === 'zai'
+        ? await generateWithZai(searchPrompt, zaiApiKey, zaiModel)
+        : await generateContent(searchPrompt, explorerModel as AIModel);
 
-      const searchJson = JSON.stringify({ topic: currentTopic, data: searchData, timestamp: new Date().toISOString() }, null, 2);
+      const searchJson = JSON.stringify({ topic: currentTopic, provider, model: provider === 'zai' ? zaiModel : explorerModel, data: searchData, timestamp: new Date().toISOString() }, null, 2);
       fs.writeFileSync(path.join(storageDir, `${runId}_${itemIdx}_search.json`), searchJson);
       await uploadToS3(`runs/${date}/${runId}_${itemIdx}_search.json`, searchJson, 'application/json').catch(e => console.error('S3 Upload failed for search', e));
 
       // Step 2: Analysis / Analyzer
-      console.log(`Step 2: Analysis using ${analyzerModel}...`);
+      console.log(`Step 2: Analysis using ${provider === 'zai' ? zaiModel : analyzerModel}...`);
       const analysisPrompt = `به عنوان تحلیلگر، داده‌های زیر را بررسی کرده و تم‌های جذاب برای روبیکا استخراج کنید.
       داده‌ها: ${searchData}`;
-      const analysisData = await generateContent(analysisPrompt, analyzerModel as AIModel);
+      const analysisData = provider === 'zai'
+        ? await generateWithZai(analysisPrompt, zaiApiKey, zaiModel)
+        : await generateContent(analysisPrompt, analyzerModel as AIModel);
 
-      const analysisJson = JSON.stringify({ analysis: analysisData, timestamp: new Date().toISOString() }, null, 2);
+      const analysisJson = JSON.stringify({ analysis: analysisData, provider, model: provider === 'zai' ? zaiModel : analyzerModel, timestamp: new Date().toISOString() }, null, 2);
       fs.writeFileSync(path.join(storageDir, `${runId}_${itemIdx}_analysis.json`), analysisJson);
       await uploadToS3(`runs/${date}/${runId}_${itemIdx}_analysis.json`, analysisJson, 'application/json').catch(e => console.error('S3 Upload failed for analysis', e));
 
       // Step 3: Production (Linked logic)
-      console.log(`Step 3: Generating post using ${reporterModel}...`);
+      console.log(`Step 3: Generating post using ${provider === 'zai' ? zaiModel : reporterModel}...`);
       let postPrompt = `با استفاده از تحلیل زیر، یک پست حرفه‌ای برای روبیکا بنویسید.
       تحلیل: ${analysisData}`;
 
@@ -67,14 +75,18 @@ export async function POST(request: Request) {
         محتوای پست قبلی برای حفظ پیوستگی: ${previousPostContent.substring(0, 500)}...`;
       }
 
-      const postContent = await generateContent(postPrompt, reporterModel as AIModel);
+      const postContent = provider === 'zai'
+        ? await generateWithZai(postPrompt, zaiApiKey, zaiModel)
+        : await generateContent(postPrompt, reporterModel as AIModel);
       previousPostContent = postContent;
 
       // Step 4: Scheduling
-      console.log(`Step 4: Scheduling using ${schedulerModel}...`);
+      console.log(`Step 4: Scheduling using ${provider === 'zai' ? zaiModel : schedulerModel}...`);
       const schedulePrompt = `بهترین زمان انتشار برای این پست در روبیکا چیست؟ فقط زمان و دلیل کوتاه به فارسی.
       پست: ${postContent}`;
-      const schedule = await generateContent(schedulePrompt, schedulerModel as AIModel);
+      const schedule = provider === 'zai'
+        ? await generateWithZai(schedulePrompt, zaiApiKey, zaiModel)
+        : await generateContent(schedulePrompt, schedulerModel as AIModel);
 
       posts.push({
         id: posts.length + 1,
