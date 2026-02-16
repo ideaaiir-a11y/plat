@@ -6,6 +6,7 @@ import { twMerge } from "tailwind-merge";
 const tabs = [
   { id: "general", label: "عمومی" },
   { id: "bot", label: "تنظیمات بات" },
+  { id: "stream", label: "استریم زنده" },
   { id: "security", label: "امنیت" },
   { id: "notifications", label: "اعلان‌ها" },
   { id: "api", label: "API" },
@@ -71,6 +72,44 @@ export default function SettingsContent() {
                   <span className="absolute inset-0 rounded-[30px] bg-white/10 transition-all duration-400 peer-checked:bg-gradient-to-r peer-checked:from-[var(--primary-pink)] peer-checked:to-[var(--primary-purple)] before:absolute before:bottom-1 before:left-1 before:h-[22px] before:w-[22px] before:rounded-full before:bg-white before:transition-all before:duration-400 peer-checked:before:translate-x-[30px]"></span>
                 </label>
               </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "stream" && (
+          <div className="animate-fadeIn">
+            <div className="mb-[25px] rounded-[20px] bg-[var(--dark-card)] p-[30px] shadow-[0_10px_30px_rgba(0,0,0,0.2)] light-theme:bg-[var(--light-card)]">
+              <h3 className="mb-5 border-b-2 border-white/10 pb-[15px] text-lg font-semibold light-theme:border-black/10">تنظیمات استریم RTMP</h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium">RTMP URL</label>
+                  <input type="text" className="w-full rounded-[15px] border-2 border-white/10 bg-white/5 p-3 text-sm outline-none" defaultValue="rtmp://5.106.7.105/stream/" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium">Stream Key</label>
+                  <input type="password" dir="ltr" className="w-full rounded-[15px] border-2 border-white/10 bg-white/5 p-3 text-sm outline-none" defaultValue="6992afa092c2803158862fcenfmthqsgscsiqfjdwbucppyprujllvpa?pt=bekuqmpyznnnxgwfxtuqlyedadkzvaoq" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium">عرض (Width)</label>
+                  <input type="number" className="w-full rounded-[15px] border-2 border-white/10 bg-white/5 p-3 text-sm outline-none text-center" defaultValue="720" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium">ارتفاع (Height)</label>
+                  <input type="number" className="w-full rounded-[15px] border-2 border-white/10 bg-white/5 p-3 text-sm outline-none text-center" defaultValue="1280" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium">بیت‌ریت (Bitrate)</label>
+                  <input type="text" className="w-full rounded-[15px] border-2 border-white/10 bg-white/5 p-3 text-sm outline-none text-center" defaultValue="1200k" />
+                </div>
+              </div>
+
+              <button className="btn-primary-gradient w-auto rounded-[15px] px-[30px] py-3 text-sm font-semibold">
+                <i className="fas fa-save ml-2"></i> ذخیره تنظیمات استریم
+              </button>
             </div>
           </div>
         )}

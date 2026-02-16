@@ -2,9 +2,74 @@
 
 import React from "react";
 
+import { Video, Radio, Power, Settings as SettingsIcon, Loader2 } from "lucide-react";
+
 export default function ContentContent() {
+  const [isStreaming, setIsStreaming] = React.useState(false);
+  const [loading, setLoading] = React.useState(false);
+
+  const toggleStream = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: isStreaming ? 'stop' : 'start' })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setIsStreaming(!isStreaming);
+      }
+    } catch (error) {
+      console.error('Failed to toggle stream', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="animate-fadeIn">
+    <div className="animate-fadeIn space-y-8">
+      {/* Live Stream Section */}
+      <div className="rounded-[20px] bg-[var(--dark-card)] p-[30px] shadow-[0_10px_30px_rgba(0,0,0,0.2)] border-2 border-[#ff1744]/20 overflow-hidden relative">
+        {isStreaming && (
+          <div className="absolute top-0 right-0 left-0 h-1 bg-red-600 animate-pulse shadow-[0_0_10px_red]"></div>
+        )}
+
+        <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="flex items-center gap-4">
+            <div className={`p-4 rounded-2xl ${isStreaming ? 'bg-red-600 animate-pulse' : 'bg-white/5'}`}>
+              <Radio className={`w-8 h-8 ${isStreaming ? 'text-white' : 'text-[#999]'}`} />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold flex items-center gap-2">
+                استریم زنده RTMP
+                {isStreaming && <span className="text-xs bg-red-600 px-2 py-0.5 rounded text-white animate-pulse">LIVE</span>}
+              </h3>
+              <p className="text-sm text-[#999]">ارسال مستقیم محتوا به سرور روبیکا</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <div className="text-left hidden md:block">
+              <div className="text-xs text-[#999]">کیفیت فعلی</div>
+              <div className="text-sm font-bold">720x1280 @ 1200kbps</div>
+            </div>
+            <button
+              onClick={toggleStream}
+              disabled={loading}
+              className={`flex items-center gap-3 px-8 py-4 rounded-2xl font-bold transition-all disabled:opacity-50 ${
+                isStreaming
+                ? 'bg-red-600 hover:bg-red-700 text-white shadow-[0_0_30px_rgba(220,38,38,0.4)]'
+                : 'bg-white/5 hover:bg-white/10 text-white'
+              }`}
+            >
+              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Power className="w-5 h-5" />}
+              {isStreaming ? 'توقف استریم' : 'شروع استریم'}
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div className="mb-[30px] rounded-[20px] bg-[var(--dark-card)] p-[30px] shadow-[0_10px_30px_rgba(0,0,0,0.2)] light-theme:bg-[var(--light-card)]">
         <h3 className="mb-[25px] text-[22px] font-semibold">ایجاد محتوای جدید</h3>
         <form>

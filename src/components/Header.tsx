@@ -18,11 +18,34 @@ export default function Header({
   onThemeToggle,
   isLightTheme,
 }: HeaderProps) {
+  const [isLive, setIsLive] = React.useState(false);
+
+  React.useEffect(() => {
+    const checkLive = async () => {
+      try {
+        const res = await fetch('/api/stream');
+        const data = await res.json();
+        setIsLive(data.isStreaming);
+      } catch (e) {}
+    };
+    checkLive();
+    const interval = setInterval(checkLive, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <header className="mb-10 flex items-center justify-between rounded-[20px] bg-[var(--dark-card)] px-[30px] py-[25px] shadow-[0_10px_30px_rgba(0,0,0,0.2)] light-theme:bg-[var(--light-card)] light-theme:shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
-      <div className="header-title">
-        <h1 className="font-lalezar text-[32px] mb-1">{title}</h1>
-        <p className="text-[#999] text-sm">{subtitle}</p>
+      <div className="header-title flex items-center gap-4">
+        <div>
+          <h1 className="font-lalezar text-[32px] mb-1">{title}</h1>
+          <p className="text-[#999] text-sm">{subtitle}</p>
+        </div>
+        {isLive && (
+          <div className="flex items-center gap-2 bg-red-600/10 border border-red-600/50 px-3 py-1 rounded-full text-red-600 animate-pulse mt-2">
+            <div className="w-2 h-2 rounded-full bg-red-600"></div>
+            <span className="text-[10px] font-bold tracking-widest">LIVE</span>
+          </div>
+        )}
       </div>
       <div className="flex items-center gap-[15px]">
         <button
