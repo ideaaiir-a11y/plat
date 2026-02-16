@@ -39,6 +39,9 @@ export default function DashboardContent() {
     setSavedFiles([]);
     setStages(prev => prev.map(s => ({ ...s, status: 'waiting', info: 'در انتظار' })));
 
+    const savedModels = localStorage.getItem('modelPrefs');
+    const models = savedModels ? JSON.parse(savedModels) : null;
+
     try {
       // Step-by-step UI updates (simulated as the API is one block)
       setStages(prev => prev.map(s => s.id === 'search' ? { ...s, status: 'processing', info: 'در حال جستجو...' } : s));
@@ -46,7 +49,11 @@ export default function DashboardContent() {
       const response = await fetch('/api/pipeline', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ topic: searchQuery, count: postCount })
+        body: JSON.stringify({
+          topic: searchQuery,
+          count: postCount,
+          models: models
+        })
       });
 
       const result = await response.json();

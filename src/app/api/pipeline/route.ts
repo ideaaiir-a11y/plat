@@ -6,7 +6,12 @@ import { uploadToS3 } from '@/lib/s3';
 
 export async function POST(request: Request) {
   try {
-    const { topic, count = 1 } = await request.json();
+    const { topic, count = 1, models } = await request.json();
+
+    const explorerModel = models?.explorer || 'qwen3:4b';
+    const analyzerModel = models?.analyzer || 'gemma3:latest';
+    const reporterModel = models?.reporter || 'llava:13b';
+    const schedulerModel = models?.scheduler || 'ideaai/hooshafza:latest';
 
     if (!topic) {
       return NextResponse.json({ error: 'Topic is required' }, { status: 400 });
@@ -22,19 +27,19 @@ export async function POST(request: Request) {
 
     const runId = Date.now();
 
-    // Step 1: Search / Explorer (qwen3:4b)
-    console.log('Step 1: Search...');
+    // Step 1: Search / Explorer
+    console.log(`Step 1: Search using ${explorerModel}...`);
     const searchPrompt = `Find 10 recent news or interesting facts about: ${topic}. Format as a list.`;
-    const searchData = await generateContent(searchPrompt, 'qwen3:4b');
+    const searchData = await generateContent(searchPrompt, explorerModel as AIModel);
 
     const searchJson = JSON.stringify({ topic, data: searchData, timestamp: new Date().toISOString() }, null, 2);
     fs.writeFileSync(path.join(storageDir, `${runId}_search.json`), searchJson);
     await uploadToS3(`runs/${date}/${runId}_search.json`, searchJson, 'application/json').catch(e => console.error('S3 Upload failed for search', e));
 
-    // Step 2: Analysis / Analyzer (gemma3:latest)
-    console.log('Step 2: Analysis...');
+    // Step 2: Analysis / Analyzer
+    console.log(`Step 2: Analysis using ${analyzerModel}...`);
     const analysisPrompt = `Analyze these facts and extract key themes for content creation: ${searchData}`;
-    const analysisData = await generateContent(analysisPrompt, 'gemma3:latest');
+    const analysisData = await generateContent(analysisPrompt, analyzerModel as AIModel);
 
     const analysisJson = JSON.stringify({ analysis: analysisData, timestamp: new Date().toISOString() }, null, 2);
     fs.writeFileSync(path.join(storageDir, `${runId}_analysis.json`), analysisJson);
@@ -46,12 +51,13 @@ export async function POST(request: Request) {
     const posts = [];
 
     for (let i = 0; i < actualCount; i++) {
-      console.log(`Step 3: Generating post ${i + 1}/${actualCount}...`);
+      console.log(`Step 3: Generating post ${i + 1}/${actualCount} using ${reporterModel}...`);
       const postPrompt = `Create a unique Persian social media post (Post #${i + 1}) about: ${analysisData}`;
-      const postContent = await generateContent(postPrompt, 'llava:13b');
+      const postContent = await generateContent(postPrompt, reporterModel as AIModel);
 
+      console.log(`Step 4: Scheduling using ${schedulerModel}...`);
       const schedulePrompt = `Best time to post this content on Rubika? ${postContent}`;
-      const schedule = await generateContent(schedulePrompt, 'ideaai/hooshafza:latest');
+      const schedule = await generateContent(schedulePrompt, schedulerModel as AIModel);
 
       posts.push({ id: i + 1, content: postContent, schedule });
     }

@@ -3,9 +3,12 @@
 import React, { useState } from "react";
 import { twMerge } from "tailwind-merge";
 
+import { Cpu, Loader2, CheckCircle } from "lucide-react";
+
 const tabs = [
   { id: "general", label: "عمومی" },
   { id: "bot", label: "تنظیمات بات" },
+  { id: "models", label: "مدل‌های هوش مصنوعی" },
   { id: "stream", label: "استریم زنده" },
   { id: "security", label: "امنیت" },
   { id: "notifications", label: "اعلان‌ها" },
@@ -14,6 +17,38 @@ const tabs = [
 
 export default function SettingsContent() {
   const [activeTab, setActiveTab] = useState("general");
+  const [ollamaModels, setOllamaModels] = useState<any[]>([]);
+  const [loadingModels, setLoadingModels] = useState(false);
+  const [modelPrefs, setModelPrefs] = useState({
+    explorer: "qwen3:4b",
+    analyzer: "gemma3:latest",
+    reporter: "llava:13b",
+    scheduler: "ideaai/hooshafza:latest"
+  });
+
+  React.useEffect(() => {
+    const saved = localStorage.getItem('modelPrefs');
+    if (saved) setModelPrefs(JSON.parse(saved));
+
+    const fetchModels = async () => {
+      setLoadingModels(true);
+      try {
+        const res = await fetch('/api/ollama/models');
+        const data = await res.json();
+        if (data.models) setOllamaModels(data.models);
+      } catch (e) {
+        console.error("Failed to fetch Ollama models", e);
+      } finally {
+        setLoadingModels(false);
+      }
+    };
+    fetchModels();
+  }, []);
+
+  const saveModelPrefs = () => {
+    localStorage.setItem('modelPrefs', JSON.stringify(modelPrefs));
+    alert('تنظیمات مدل‌ها با موفقیت ذخیره شد');
+  };
 
   return (
     <div className="animate-fadeIn">
@@ -72,6 +107,74 @@ export default function SettingsContent() {
                   <span className="absolute inset-0 rounded-[30px] bg-white/10 transition-all duration-400 peer-checked:bg-gradient-to-r peer-checked:from-[var(--primary-pink)] peer-checked:to-[var(--primary-purple)] before:absolute before:bottom-1 before:left-1 before:h-[22px] before:w-[22px] before:rounded-full before:bg-white before:transition-all before:duration-400 peer-checked:before:translate-x-[30px]"></span>
                 </label>
               </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "models" && (
+          <div className="animate-fadeIn space-y-6">
+            <div className="rounded-[20px] bg-[var(--dark-card)] p-[30px] shadow-[0_10px_30px_rgba(0,0,0,0.2)] light-theme:bg-[var(--light-card)]">
+              <div className="flex items-center justify-between mb-8 border-b-2 border-white/10 pb-5">
+                <h3 className="text-xl font-bold flex items-center gap-3">
+                  <Cpu className="text-[var(--primary-purple)]" />
+                  تنظیمات مدل‌های Ollama
+                </h3>
+                {loadingModels ? (
+                  <Loader2 className="animate-spin text-[#999]" />
+                ) : (
+                  <div className="flex items-center gap-2 text-xs text-[#00c853]">
+                    <CheckCircle className="w-4 h-4" />
+                    <span>متصل به Ollama</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {[
+                  { key: 'explorer', label: 'مدل Explorer (جستجو)', current: modelPrefs.explorer },
+                  { key: 'analyzer', label: 'مدل Analyzer (تحلیل)', current: modelPrefs.analyzer },
+                  { key: 'reporter', label: 'مدل Reporter (تولید محتوا)', current: modelPrefs.reporter },
+                  { key: 'scheduler', label: 'مدل Scheduler (زمان‌بندی)', current: modelPrefs.scheduler }
+                ].map((stage) => (
+                  <div key={stage.key} className="space-y-3">
+                    <label className="text-sm font-medium text-[#999]">{stage.label}</label>
+                    <select
+                      value={stage.current}
+                      onChange={(e) => setModelPrefs(prev => ({ ...prev, [stage.key]: e.target.value }))}
+                      className="w-full rounded-[15px] border-2 border-white/10 bg-white/5 p-4 text-sm outline-none focus:border-[var(--primary-purple)]"
+                    >
+                      {ollamaModels.length > 0 ? (
+                        ollamaModels.map((m) => (
+                          <option key={m.name} value={m.name}>{m.name}</option>
+                        ))
+                      ) : (
+                        <option value={stage.current}>{stage.current} (پیش‌فرض)</option>
+                      )}
+                    </select>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-10">
+                <button
+                  onClick={saveModelPrefs}
+                  className="btn-primary-gradient w-full md:w-auto rounded-[15px] px-[50px] py-4 text-base font-bold shadow-lg"
+                >
+                  ذخیره پیکربندی مدل‌ها
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-[20px] bg-[var(--dark-card)] p-[30px] light-theme:bg-[var(--light-card)]">
+               <h4 className="text-sm font-bold mb-4">مدل‌های موجود در سیستم</h4>
+               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                  {ollamaModels.map(m => (
+                    <div key={m.name} className="bg-white/5 p-4 rounded-xl border border-white/5 flex flex-col items-center gap-2">
+                       <div className="text-xs font-bold truncate w-full text-center">{m.name}</div>
+                       <div className="text-[10px] text-[#999]">{(m.size / 1024 / 1024 / 1024).toFixed(1)} GB</div>
+                    </div>
+                  ))}
+               </div>
             </div>
           </div>
         )}

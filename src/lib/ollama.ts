@@ -1,6 +1,6 @@
 const OLLAMA_URL = 'http://localhost:11434/api/generate';
 
-export type AIModel = 'qwen3:4b' | 'gemma3:latest' | 'llava:13b' | 'ideaai/hooshafza:latest';
+export type AIModel = string;
 
 export interface OllamaResponse {
   model: string;
