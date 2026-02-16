@@ -342,13 +342,30 @@ export default function Dashboard() {
                           <label className="block">
                             <span className="text-sm font-bold text-slate-300">{step.label}</span>
                             <span className="block text-xs text-slate-500 mb-2">{step.description}</span>
-                            <select
-                              value={config[step.key as keyof typeof config]}
-                              onChange={(e) => setConfig({...config, [step.key]: e.target.value})}
-                              className="w-full bg-[#0f172a] border border-slate-700 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none shadow-inner"
-                            >
-                              {step.models.map(m => <option key={m} value={m}>{m}</option>)}
-                            </select>
+                            <div className="flex gap-2">
+                              <select
+                                value={config[step.key as keyof typeof config]}
+                                onChange={(e) => setConfig({...config, [step.key]: e.target.value})}
+                                className="flex-1 bg-[#0f172a] border border-slate-700 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 appearance-none shadow-inner"
+                              >
+                                {step.models.map(m => <option key={m} value={m}>{m}</option>)}
+                              </select>
+                              <button
+                                onClick={async () => {
+                                  const model = config[step.key as keyof typeof config];
+                                  await fetch('/api/ollama/model', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ action: 'push', name: model })
+                                  });
+                                  alert(`مدل ${model} با موفقیت Push شد.`);
+                                }}
+                                className="p-3 bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 text-blue-400 transition-colors"
+                                title="Push Model"
+                              >
+                                <Zap size={18} />
+                              </button>
+                            </div>
                           </label>
                         </div>
                       ))}
@@ -524,9 +541,13 @@ export default function Dashboard() {
                     <div>
                       <p className="font-bold">ذخیره‌سازی ابری Liara</p>
                       <p className="text-xs text-slate-500">storage.c2.liara.space/idea</p>
+                      <div className="flex items-center gap-1 mt-1">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        <span className="text-[10px] text-emerald-500 font-medium">متصل به Liara Space</span>
+                      </div>
                     </div>
                     <div className="w-12 h-6 bg-blue-600 rounded-full flex items-center px-1 cursor-pointer">
-                      <div className="w-4 h-4 bg-white rounded-full translate-x-6" />
+                      <div className="w-4 h-4 bg-white rounded-full translate-x-6 transition-transform" />
                     </div>
                   </div>
                 </div>
