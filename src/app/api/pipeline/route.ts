@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { generateContent, AIModel } from '@/lib/ollama';
 import fs from 'fs';
 import path from 'path';
+import { uploadToS3 } from '@/lib/s3';
 
 export async function POST(request: Request) {
   try {
@@ -26,20 +27,18 @@ export async function POST(request: Request) {
     const searchPrompt = `Find 10 recent news or interesting facts about: ${topic}. Format as a list.`;
     const searchData = await generateContent(searchPrompt, 'qwen3:4b');
 
-    fs.writeFileSync(
-      path.join(storageDir, `${runId}_search.json`),
-      JSON.stringify({ topic, data: searchData, timestamp: new Date().toISOString() }, null, 2)
-    );
+    const searchJson = JSON.stringify({ topic, data: searchData, timestamp: new Date().toISOString() }, null, 2);
+    fs.writeFileSync(path.join(storageDir, `${runId}_search.json`), searchJson);
+    await uploadToS3(`runs/${date}/${runId}_search.json`, searchJson, 'application/json').catch(e => console.error('S3 Upload failed for search', e));
 
     // Step 2: Analysis / Analyzer (gemma3:latest)
     console.log('Step 2: Analysis...');
     const analysisPrompt = `Analyze these facts and extract key themes for content creation: ${searchData}`;
     const analysisData = await generateContent(analysisPrompt, 'gemma3:latest');
 
-    fs.writeFileSync(
-      path.join(storageDir, `${runId}_analysis.json`),
-      JSON.stringify({ analysis: analysisData, timestamp: new Date().toISOString() }, null, 2)
-    );
+    const analysisJson = JSON.stringify({ analysis: analysisData, timestamp: new Date().toISOString() }, null, 2);
+    fs.writeFileSync(path.join(storageDir, `${runId}_analysis.json`), analysisJson);
+    await uploadToS3(`runs/${date}/${runId}_analysis.json`, analysisJson, 'application/json').catch(e => console.error('S3 Upload failed for analysis', e));
 
     // Step 3 & 4: Production & Save (llava:13b & hooshafza)
     // We'll generate the requested number of posts (up to a reasonable limit for simulation)
@@ -73,14 +72,14 @@ export async function POST(request: Request) {
       timestamp: new Date().toISOString()
     };
 
-    fs.writeFileSync(
-      path.join(postsDir, `daily_posts_${runId}.json`),
-      JSON.stringify(finalResult, null, 2)
-    );
+    const finalJson = JSON.stringify(finalResult, null, 2);
+    fs.writeFileSync(path.join(postsDir, `daily_posts_${runId}.json`), finalJson);
+    await uploadToS3(`posts/${date}/daily_posts_${runId}.json`, finalJson, 'application/json').catch(e => console.error('S3 Upload failed for final json', e));
 
     // Also write a human readable txt file as seen in screenshots
     const txtContent = posts.map(p => `Post #${p.id}\n${p.content}\nSchedule: ${p.schedule}\n---\n`).join('\n');
     fs.writeFileSync(path.join(postsDir, `posts_${runId}.txt`), txtContent);
+    await uploadToS3(`posts/${date}/posts_${runId}.txt`, txtContent, 'text/plain').catch(e => console.error('S3 Upload failed for txt', e));
 
     return NextResponse.json({
       success: true,

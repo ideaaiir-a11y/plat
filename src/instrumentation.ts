@@ -18,6 +18,7 @@ export async function register() {
         // so we'll import the logic or just use a fetch to localhost if the server is up.
         // For instrumentation, it's safer to use the lib functions directly.
         const { generateContent } = await import('@/lib/ollama');
+        const { uploadToS3 } = await import('@/lib/s3');
 
         // Step 1: Explorer
         const research = await generateContent(`Research 5 tech trends about ${topic}`, 'qwen3:4b');
@@ -42,10 +43,12 @@ export async function register() {
           timestamp: new Date().toISOString(),
         };
 
+        const cronJson = JSON.stringify(entry, null, 2);
         fs.writeFileSync(
           path.join(storageDir, `cron_pipeline_${entry.id}.json`),
-          JSON.stringify(entry, null, 2)
+          cronJson
         );
+        await uploadToS3(`cron/${date}/cron_pipeline_${entry.id}.json`, cronJson, 'application/json').catch(e => console.error('S3 Cron Upload failed', e));
         console.log('Scheduled pipeline completed successfully.');
       } catch (error) {
         console.error('Scheduled pipeline failed:', error);

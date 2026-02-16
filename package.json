@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.990.0",
     "@fontsource/lalezar": "^5.2.7",
     "@fontsource/vazirmatn": "^5.2.8",
     "@types/node-cron": "^3.0.11",

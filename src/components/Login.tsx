@@ -1,15 +1,42 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
+import { Loader2 } from "lucide-react";
 
 interface LoginProps {
   onLogin: () => void;
 }
 
 export default function Login({ onLogin }: LoginProps) {
-  const handleSubmit = (e: React.FormEvent) => {
+  const [username, setUsername] = useState("admin@rubika.ir");
+  const [password, setPassword] = useState("admin123");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onLogin();
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        onLogin();
+      } else {
+        setError(data.error || 'ورود ناموفق بود');
+      }
+    } catch (err) {
+      setError('خطا در برقراری ارتباط با سرور');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -22,11 +49,18 @@ export default function Login({ onLogin }: LoginProps) {
           <p className="text-[14px] text-[#999]">پنل مدیریت پیشرفته بات روبیکا</p>
         </div>
         <form onSubmit={handleSubmit}>
+          {error && (
+            <div className="mb-5 p-3 rounded-lg bg-red-500/10 border border-red-500/50 text-red-500 text-sm text-center">
+              {error}
+            </div>
+          )}
           <div className="mb-[25px]">
             <label className="mb-2 block text-sm font-medium">نام کاربری یا ایمیل</label>
             <div className="relative">
               <input
                 type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 className="w-full rounded-[15px] border-2 border-white/10 bg-white/5 py-[15px] pl-5 pr-[50px] text-[15px] outline-none transition-all focus:border-[var(--primary-purple)] focus:shadow-[0_0_20px_rgba(156,39,176,0.3)] light-theme:border-black/10 light-theme:bg-black/2 light-theme:text-[var(--text-light)]"
                 placeholder="admin@rubika.ir"
                 required
@@ -39,6 +73,8 @@ export default function Login({ onLogin }: LoginProps) {
             <div className="relative">
               <input
                 type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 className="w-full rounded-[15px] border-2 border-white/10 bg-white/5 py-[15px] pl-5 pr-[50px] text-[15px] outline-none transition-all focus:border-[var(--primary-purple)] focus:shadow-[0_0_20px_rgba(156,39,176,0.3)] light-theme:border-black/10 light-theme:bg-black/2 light-theme:text-[var(--text-light)]"
                 placeholder="••••••••"
                 required
@@ -58,7 +94,12 @@ export default function Login({ onLogin }: LoginProps) {
               <i className="fas fa-shield-alt absolute left-5 top-1/2 -translate-y-1/2 text-[18px] text-[#666]"></i>
             </div>
           </div>
-          <button type="submit" className="btn-primary-gradient w-full rounded-[15px] py-4 text-base font-semibold">
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="btn-primary-gradient w-full rounded-[15px] py-4 text-base font-semibold flex items-center justify-center gap-2"
+          >
+            {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
             ورود به پنل
           </button>
         </form>

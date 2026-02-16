@@ -15,48 +15,57 @@ import {
 } from "lucide-react";
 
 export default function DashboardContent() {
-  const [status, setStatus] = useState<'idle' | 'running' | 'completed'>('running');
+  const [status, setStatus] = useState<'idle' | 'running' | 'completed' | 'error'>('idle');
   const [searchQuery, setSearchQuery] = useState('scientific breakthrough latest discoveries');
   const [postCount, setPostCount] = useState(24);
   const [autoSave, setAutoSave] = useState(true);
   const [newsCount, setNewsCount] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
-  // Simulated pipeline progress
+  // Pipeline progress
   const [stages, setStages] = useState([
-    { id: 'search', title: 'جستجو', subtitle: 'جستجوی وب', icon: Search, status: 'completed', info: '10 خبر', color: 'bg-[#00c853]' },
-    { id: 'analysis', title: 'تحلیل', subtitle: 'تحلیل AI', icon: Brain, status: 'completed', info: 'تحلیل شد', color: 'bg-[#6200ea]' },
-    { id: 'production', title: 'تولید محتوا', subtitle: 'ساخت پست', icon: FileEdit, status: 'processing', info: 'در حال پردازش...', color: 'bg-[#ffab00]' },
+    { id: 'search', title: 'جستجو', subtitle: 'جستجوی وب', icon: Search, status: 'waiting', info: 'در انتظار', color: 'bg-[#00c853]' },
+    { id: 'analysis', title: 'تحلیل', subtitle: 'تحلیل AI', icon: Brain, status: 'waiting', info: 'در انتظار', color: 'bg-[#6200ea]' },
+    { id: 'production', title: 'تولید محتوا', subtitle: 'ساخت پست', icon: FileEdit, status: 'waiting', info: 'در انتظار', color: 'bg-[#ffab00]' },
     { id: 'save', title: 'ذخیره لوکال', subtitle: 'ذخیره فایل', icon: Save, status: 'waiting', info: 'در انتظار', color: 'bg-[#d500f9]' },
   ]);
 
-  const [savedFiles, setSavedFiles] = useState([
-    '/home/z/my-project/storage/runs/2026-02-16/1771214020922_search.json',
-    '/home/z/my-project/storage/runs/2026-02-16/1771214020922_analysis.json'
-  ]);
+  const [savedFiles, setSavedFiles] = useState<string[]>([]);
 
-  useEffect(() => {
-    if (status === 'running') {
-      const newsInterval = setInterval(() => {
-        setNewsCount(prev => prev < 10 ? prev + 1 : prev);
-      }, 300);
+  const runPipeline = async () => {
+    setStatus('running');
+    setError(null);
+    setNewsCount(0);
+    setSavedFiles([]);
+    setStages(prev => prev.map(s => ({ ...s, status: 'waiting', info: 'در انتظار' })));
 
-      const timer = setTimeout(() => {
-        clearInterval(newsInterval);
-        setStages(prev => prev.map(s =>
-          s.id === 'production' ? { ...s, status: 'completed', info: 'تولید شد' } :
-          s.id === 'save' ? { ...s, status: 'completed', info: '5 فایل' } : s
-        ));
+    try {
+      // Step-by-step UI updates (simulated as the API is one block)
+      setStages(prev => prev.map(s => s.id === 'search' ? { ...s, status: 'processing', info: 'در حال جستجو...' } : s));
+
+      const response = await fetch('/api/pipeline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: searchQuery, count: postCount })
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setNewsCount(result.data.stats.newsCount);
+        setSavedFiles(result.files);
+        setStages(prev => prev.map(s => ({ ...s, status: 'completed', info: 'تکمیل شد' })));
         setStatus('completed');
-        setSavedFiles(prev => [
-          ...prev,
-          '/home/z/my-project/storage/runs/2026-02-16/1771214009110_analysis.json',
-          '/home/z/my-project/storage/posts/2026-02-16/daily_posts_1771214020922.json',
-          '/home/z/my-project/storage/posts/2026-02-16/posts_1771214020922.txt'
-        ]);
-      }, 3000);
-      return () => clearTimeout(timer);
+      } else {
+        throw new Error(result.error || 'Failed to run pipeline');
+      }
+    } catch (err: any) {
+      console.error('Pipeline Error:', err);
+      setError(err.message);
+      setStatus('error');
+      setStages(prev => prev.map(s => s.status === 'processing' ? { ...s, status: 'waiting', info: 'خطا' } : s));
     }
-  }, [status]);
+  };
 
   return (
     <div className="animate-fadeIn space-y-8 font-vazirmatn text-white">
@@ -82,13 +91,23 @@ export default function DashboardContent() {
             <Clock className="w-4 h-4" />
             <span className="text-sm font-medium">{status === 'completed' ? 'تکمیل شد' : 'در حال اجرا'}</span>
           </div>
-          <button
-            onClick={() => setStatus('idle')}
-            className="flex items-center gap-2 bg-[#ff1744] hover:bg-[#d50000] px-6 py-2 rounded-lg transition-colors"
-          >
-            <Square className="w-4 h-4 fill-white" />
-            <span className="font-bold">توقف</span>
-          </button>
+          {status === 'running' ? (
+            <button
+              onClick={() => setStatus('idle')}
+              className="flex items-center gap-2 bg-[#ff1744] hover:bg-[#d50000] px-6 py-2 rounded-lg transition-colors"
+            >
+              <Square className="w-4 h-4 fill-white" />
+              <span className="font-bold">توقف</span>
+            </button>
+          ) : (
+            <button
+              onClick={runPipeline}
+              className="flex items-center gap-2 bg-[#00c853] hover:bg-[#00a344] px-6 py-2 rounded-lg transition-colors"
+            >
+              <Play className="w-4 h-4 fill-white" />
+              <span className="font-bold">شروع</span>
+            </button>
+          )}
           <div className="bg-white w-10 h-10 rounded-lg"></div>
         </div>
       </div>
