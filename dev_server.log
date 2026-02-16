@@ -1,0 +1,25 @@
+
+> content-automation-panel@0.1.0 dev
+> next dev
+
+▲ Next.js 16.1.6 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.2:3000
+
+✓ Starting...
+✓ Ready in 2.4s
+ GET / 200 in 1624ms (compile: 1092ms, render: 532ms)
+Running Explorer with model: qwen3:4b
+Running Analyzer with model: gemma3:latest
+Running Reporter with model: llava:13b
+Running Scheduler with model: ideaai/hooshafza:latest
+ POST /api/pipeline 200 in 217ms (compile: 174ms, render: 43ms)
+ POST /api/storage 200 in 102ms (compile: 88ms, render: 14ms)
+ GET / 200 in 82ms (compile: 6ms, render: 75ms)
+Explorer [qwen3:4b]: Searching for "کشف‌های جدید در دنیای نانو"
+Analyzer [gemma3:latest]: Refining content for 3 items
+Reporter [llava:13b]: Generating social media posts
+Scheduler [ideaai/hooshafza:latest]: Calculating optimal cron and sequence
+ POST /api/pipeline 200 in 71ms (compile: 58ms, render: 14ms)
+ POST /api/storage 200 in 24ms (compile: 10ms, render: 15ms)
+ GET / 200 in 1367ms (compile: 1066ms, render: 302ms)
