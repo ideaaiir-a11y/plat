@@ -34,6 +34,7 @@ export async function POST(request: Request) {
 
     const runId = Date.now();
     const posts = [];
+    const allGeneratedFiles: string[] = [];
     let previousPostContent = "";
 
     for (let itemIdx = 0; itemIdx < itemsToProcess.length; itemIdx++) {
@@ -50,7 +51,9 @@ export async function POST(request: Request) {
         : await generateContent(searchPrompt, explorerModel as AIModel);
 
       const searchJson = JSON.stringify({ topic: currentTopic, provider, model: provider === 'zai' ? zaiModel : explorerModel, data: searchData, timestamp: new Date().toISOString() }, null, 2);
-      fs.writeFileSync(path.join(storageDir, `${runId}_${itemIdx}_search.json`), searchJson);
+      const searchPath = path.join(storageDir, `${runId}_${itemIdx}_search.json`);
+      fs.writeFileSync(searchPath, searchJson);
+      allGeneratedFiles.push(searchPath);
       await uploadToS3(`runs/${date}/${runId}_${itemIdx}_search.json`, searchJson, 'application/json').catch(e => console.error('S3 Upload failed for search', e));
 
       // Step 2: Analysis / Analyzer
@@ -62,7 +65,9 @@ export async function POST(request: Request) {
         : await generateContent(analysisPrompt, analyzerModel as AIModel);
 
       const analysisJson = JSON.stringify({ analysis: analysisData, provider, model: provider === 'zai' ? zaiModel : analyzerModel, timestamp: new Date().toISOString() }, null, 2);
-      fs.writeFileSync(path.join(storageDir, `${runId}_${itemIdx}_analysis.json`), analysisJson);
+      const analysisPath = path.join(storageDir, `${runId}_${itemIdx}_analysis.json`);
+      fs.writeFileSync(analysisPath, analysisJson);
+      allGeneratedFiles.push(analysisPath);
       await uploadToS3(`runs/${date}/${runId}_${itemIdx}_analysis.json`, analysisJson, 'application/json').catch(e => console.error('S3 Upload failed for analysis', e));
 
       // Step 3: Production (Linked logic)
@@ -114,21 +119,22 @@ export async function POST(request: Request) {
     };
 
     const finalJson = JSON.stringify(finalResult, null, 2);
-    fs.writeFileSync(path.join(postsDir, `daily_posts_${runId}.json`), finalJson);
+    const finalJsonPath = path.join(postsDir, `daily_posts_${runId}.json`);
+    fs.writeFileSync(finalJsonPath, finalJson);
+    allGeneratedFiles.push(finalJsonPath);
     await uploadToS3(`posts/${date}/daily_posts_${runId}.json`, finalJson, 'application/json').catch(e => console.error('S3 Upload failed for final json', e));
 
     // Also write a human readable txt file as seen in screenshots
     const txtContent = posts.map(p => `Post #${p.id}\n${p.content}\nSchedule: ${p.schedule}\n---\n`).join('\n');
-    fs.writeFileSync(path.join(postsDir, `posts_${runId}.txt`), txtContent);
+    const finalTxtPath = path.join(postsDir, `posts_${runId}.txt`);
+    fs.writeFileSync(finalTxtPath, txtContent);
+    allGeneratedFiles.push(finalTxtPath);
     await uploadToS3(`posts/${date}/posts_${runId}.txt`, txtContent, 'text/plain').catch(e => console.error('S3 Upload failed for txt', e));
 
     return NextResponse.json({
       success: true,
       data: finalResult,
-      files: [
-        path.join(postsDir, `daily_posts_${runId}.json`),
-        path.join(postsDir, `posts_${runId}.txt`)
-      ]
+      files: allGeneratedFiles
     });
 
   } catch (error: any) {
