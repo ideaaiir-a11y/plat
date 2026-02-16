@@ -29,7 +29,7 @@ export async function POST(request: Request) {
 
     // Step 1: Search / Explorer
     console.log(`Step 1: Search using ${explorerModel}...`);
-    const searchPrompt = `Find 10 recent news or interesting facts about: ${topic}. Format as a list.`;
+    const searchPrompt = `Research and find 10 detailed and interesting facts or news items about "${topic}". The focus should be on providing high-quality information that can be used for social media content. Present the findings as a numbered list. Language: English or Persian, but the analysis will be in Persian.`;
     const searchData = await generateContent(searchPrompt, explorerModel as AIModel);
 
     const searchJson = JSON.stringify({ topic, data: searchData, timestamp: new Date().toISOString() }, null, 2);
@@ -38,7 +38,10 @@ export async function POST(request: Request) {
 
     // Step 2: Analysis / Analyzer
     console.log(`Step 2: Analysis using ${analyzerModel}...`);
-    const analysisPrompt = `Analyze these facts and extract key themes for content creation: ${searchData}`;
+    const analysisPrompt = `به عنوان یک تحلیلگر محتوا، داده‌های زیر را بررسی کنید و ۵ تم اصلی و جذاب برای تولید محتوا در شبکه اجتماعی روبیکا استخراج کنید.
+    تحلیل باید به زبان فارسی باشد و بر روی جذابیت بصری و متنی برای مخاطب ایرانی تمرکز کند:
+
+    ${searchData}`;
     const analysisData = await generateContent(analysisPrompt, analyzerModel as AIModel);
 
     const analysisJson = JSON.stringify({ analysis: analysisData, timestamp: new Date().toISOString() }, null, 2);
@@ -52,11 +55,19 @@ export async function POST(request: Request) {
 
     for (let i = 0; i < actualCount; i++) {
       console.log(`Step 3: Generating post ${i + 1}/${actualCount} using ${reporterModel}...`);
-      const postPrompt = `Create a unique Persian social media post (Post #${i + 1}) about: ${analysisData}`;
+      const postPrompt = `با استفاده از تحلیل زیر، یک پست جذاب و حرفه‌ای برای شبکه اجتماعی روبیکا بنویسید (پست شماره ${i + 1}).
+      پست باید شامل تیتر جذاب، متن بدنه با لحن صمیمی و در عین حال محترمانه، و هشتگ‌های مرتبط باشد.
+      تمرکز بر روی تعامل کاربر (Call to Action) باشد.
+      فقط متن پست را به زبان فارسی برگردانید.
+
+      تحلیل: ${analysisData}`;
       const postContent = await generateContent(postPrompt, reporterModel as AIModel);
 
       console.log(`Step 4: Scheduling using ${schedulerModel}...`);
-      const schedulePrompt = `Best time to post this content on Rubika? ${postContent}`;
+      const schedulePrompt = `با توجه به محتوای پست زیر، بهترین زمان برای انتشار آن در روبیکا چه زمانی است؟
+      لطفا فقط زمان پیشنهادی و یک جمله کوتاه دلیل آن را به فارسی بنویسید.
+
+      پست: ${postContent}`;
       const schedule = await generateContent(schedulePrompt, schedulerModel as AIModel);
 
       posts.push({ id: i + 1, content: postContent, schedule });
